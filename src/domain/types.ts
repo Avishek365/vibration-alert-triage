@@ -1,5 +1,7 @@
 // Domain model for the vibration alert triage tool. All values are fictional.
 
+import type { ConfidenceBand } from './confidence'
+
 /** Overall machine health shown to the user. */
 export type HealthState = 'critical' | 'warning' | 'healthy' | 'unknown'
 
@@ -127,6 +129,7 @@ export interface AlertFilters {
   severity?: Severity[]
   siteId?: string
   minConfidence?: number
+  confidence?: ConfidenceBand[]
 }
 
 export interface AssetFilters {

@@ -1,5 +1,6 @@
 // Pure alert helpers shared by the mock API and the optimistic updates in the query hooks.
 
+import { confidenceBand } from './confidence'
 import { severityRank } from './health'
 import type { Alert, AlertFilters, DismissInput, DismissedAlert } from './types'
 
@@ -46,13 +47,20 @@ export function matchesAlertFilters(
   if (filters.status?.length && !filters.status.includes(alert.status)) return false
   if (filters.severity?.length && !filters.severity.includes(alert.severity)) return false
   if (filters.minConfidence !== undefined && alert.confidence < filters.minConfidence) return false
+  if (filters.confidence?.length && !filters.confidence.includes(confidenceBand(alert.confidence)))
+    return false
   if (filters.siteId && siteIdOf(alert.assetId) !== filters.siteId) return false
   return true
 }
 
-/** Most severe first, then newest first. */
+/**
+ * Queue order: most severe first, then highest confidence, then newest.
+ * See the README for the trade-off this makes.
+ */
 export function compareAlerts(a: Alert, b: Alert): number {
   const bySeverity = severityRank(b.severity) - severityRank(a.severity)
   if (bySeverity !== 0) return bySeverity
+  const byConfidence = b.confidence - a.confidence
+  if (byConfidence !== 0) return byConfidence
   return b.triggeredAt.localeCompare(a.triggeredAt)
 }

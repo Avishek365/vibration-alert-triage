@@ -89,14 +89,31 @@ describe('matchesAlertFilters', () => {
   })
 })
 
-it('sorts by severity, then newest first', () => {
-  const older: Alert = { ...base, id: 'old', triggeredAt: '2026-09-29T00:00:00.000Z' }
-  const critical: Alert = {
-    ...base,
-    id: 'crit',
-    severity: 'critical',
-    triggeredAt: '2026-09-28T00:00:00.000Z',
-  }
-  const sorted = [older, base, critical].sort(compareAlerts).map((a) => a.id)
-  expect(sorted).toEqual(['crit', 'al-1', 'old'])
+describe('compareAlerts', () => {
+  it('sorts by severity, then confidence, then newest', () => {
+    const at = (d: string) => `2026-09-${d}T00:00:00.000Z`
+    const alerts: Alert[] = [
+      { ...base, id: 'warn-low-new', confidence: 0.45, triggeredAt: at('30') },
+      { ...base, id: 'warn-high-old', confidence: 0.9, triggeredAt: at('20') },
+      { ...base, id: 'crit-low', severity: 'critical', confidence: 0.41, triggeredAt: at('10') },
+      { ...base, id: 'warn-high-new', confidence: 0.9, triggeredAt: at('25') },
+    ]
+    expect(alerts.sort(compareAlerts).map((a) => a.id)).toEqual([
+      'crit-low', // severity wins even at low confidence
+      'warn-high-new', // same confidence: newer first
+      'warn-high-old',
+      'warn-low-new', // newest, but least confident
+    ])
+  })
+})
+
+describe('confidence band filter', () => {
+  const siteOf = () => 's1'
+
+  it('matches alerts whose confidence falls in a selected band', () => {
+    const medium: Alert = { ...base, confidence: 0.6 }
+    expect(matchesAlertFilters(medium, { confidence: ['medium'] }, siteOf)).toBe(true)
+    expect(matchesAlertFilters(medium, { confidence: ['low', 'high'] }, siteOf)).toBe(false)
+    expect(matchesAlertFilters(medium, { confidence: [] }, siteOf)).toBe(true)
+  })
 })

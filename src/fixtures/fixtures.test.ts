@@ -1,3 +1,4 @@
+import { CONFIDENCE_BANDS, confidenceBand } from '../domain/confidence'
 import { assetHealth, sensorStatusFor, severityForReading } from '../domain/health'
 import { DISMISS_REASONS, FAULT_TYPES } from '../domain/types'
 import { buildFixtures, buildTrend } from '.'
@@ -50,6 +51,12 @@ describe('alerts', () => {
     const low = alerts.filter((a) => a.confidence >= 0.4 && a.confidence <= 0.6)
     expect(low.length).toBeGreaterThanOrEqual(6)
     expect(low.filter((a) => a.status === 'new').length).toBeGreaterThanOrEqual(3)
+  })
+
+  it.each(CONFIDENCE_BANDS)('include at least 5 %s-confidence alerts', (band) => {
+    expect(
+      alerts.filter((a) => confidenceBand(a.confidence) === band).length,
+    ).toBeGreaterThanOrEqual(5)
   })
 
   it('have evidence where the band exceeds baseline and lowHz < highHz', () => {

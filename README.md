@@ -30,3 +30,9 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Alert queue sort order
+
+The queue sorts by **severity**, then **model confidence** (highest first), then **newest**.
+
+Trade-off: a low-confidence critical alert ranks above a high-confidence warning, and an older high-confidence alert ranks above a fresh, less certain one. Severity goes first so the most dangerous possibility is always at the top; a technician can then use the confidence band and the evidence line to decide quickly whether it is real. A single combined risk score (severity × confidence) was considered and rejected because it hides why an alert ranks where it does.
