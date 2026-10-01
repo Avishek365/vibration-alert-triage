@@ -1,0 +1,91 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Tailwind theme: maps semantic tokens to utility names.
+ * The default palette, radii and shadows are cleared so only our tokens exist.
+ * There is no `bg-red-500` escape hatch: health colours are reachable
+ * only through the `health-*` names.
+ */
+@theme inline {
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Surfaces: bg-app, bg-surface, bg-subtle, bg-inverse */
+  --color-app: var(--ui-bg-app);
+  --color-surface: var(--ui-bg-surface);
+  --color-subtle: var(--ui-bg-subtle);
+  --color-inverse: var(--ui-bg-inverse);
+
+  /* Borders: border-hairline, border-strong */
+  --color-hairline: var(--ui-border-hairline);
+  --color-strong: var(--ui-border-strong);
+
+  /* Text: text-primary, text-heading, text-secondary, text-tertiary, text-on-inverse, text-disabled */
+  --color-primary: var(--ui-text-primary);
+  --color-heading: var(--ui-text-heading);
+  --color-secondary: var(--ui-text-secondary);
+  --color-tertiary: var(--ui-text-tertiary);
+  --color-on-inverse: var(--ui-text-inverse);
+  --color-disabled: var(--ui-text-disabled);
+
+  /* Accent: bg-accent, hover:bg-accent-hover, bg-accent-subtle, text-on-accent, outline-focus */
+  --color-accent: var(--ui-accent);
+  --color-accent-hover: var(--ui-accent-hover);
+  --color-accent-subtle: var(--ui-accent-subtle);
+  --color-on-accent: var(--ui-on-accent);
+  --color-focus: var(--ui-focus-ring);
+
+  /* Machine health: bg-health-critical-tint, text-health-critical-text, … */
+  --color-health-critical-strong: var(--health-critical-strong);
+  --color-health-critical-tint: var(--health-critical-tint);
+  --color-health-critical-text: var(--health-critical-text);
+  --color-health-warning-strong: var(--health-warning-strong);
+  --color-health-warning-tint: var(--health-warning-tint);
+  --color-health-warning-text: var(--health-warning-text);
+  --color-health-healthy-strong: var(--health-healthy-strong);
+  --color-health-healthy-tint: var(--health-healthy-tint);
+  --color-health-healthy-text: var(--health-healthy-text);
+  --color-health-unknown-strong: var(--health-unknown-strong);
+  --color-health-unknown-tint: var(--health-unknown-tint);
+  --color-health-unknown-text: var(--health-unknown-text);
+
+  --radius-sm: var(--size-radius-sm);
+  --radius-md: var(--size-radius-md);
+  --radius-lg: var(--size-radius-lg);
+
+  --shadow-floating: var(--ui-shadow-floating);
+
+  /* 4px spacing scale: p-1 = 4px, p-2 = 8px, … */
+  --spacing: var(--size-space-unit);
+}
+
+@layer base {
+  html {
+    background-color: var(--ui-bg-app);
+    color: var(--ui-text-primary);
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ui-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

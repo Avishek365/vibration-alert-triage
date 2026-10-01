@@ -1,0 +1,107 @@
+/*
+ * Design tokens: Vibration Alert Triage
+ *
+ * Three layers, with distinct prefixes so no layer shadows another:
+ *   1. Primitives   (--gray-*, --indigo-*, --red-* …): raw values.
+ *                    Never referenced by components.
+ *   2. Semantic      (--ui-*, --health-*): purpose-named.
+ *                    A future dark theme redefines only this layer.
+ *   3. Tailwind      (--color-*, --radius-*, …): see index.css @theme.
+ *                    Components use these utility names.
+ *
+ * Colour rules (ISA-101 spirit):
+ *   - Grey is the default. Colour is the exception.
+ *   - Indigo is the single accent: actions, links, focus, selection.
+ *   - Red, amber and green mean machine health and nothing else.
+ *     Generic UI feedback (toasts, form errors, sensor link) never uses them.
+ *   - Health is never shown by colour alone: pair with a shape and a label.
+ */
+
+:root {
+  /* ---------- 1. Primitives ---------- */
+
+  /* Neutrals */
+  --gray-0: #ffffff;
+  --gray-25: #f7f8f9;
+  --gray-50: #f0f1f3;
+  --gray-100: #e3e5e8;
+  --gray-200: #c9cdd2;
+  --gray-400: #8a9099;
+  --gray-500: #6b717a;
+  --gray-600: #5b616b;
+  --gray-800: #2e3238;
+  --gray-900: #1b1e22;
+
+  /* Accent: indigo, kept well away from red, amber and green */
+  --indigo-50: #eef0fb;
+  --indigo-600: #4a55c9;
+  --indigo-700: #3a44a8;
+
+  /* Health hues: reserved for machine health only */
+  --red-50: #fbe7e5;
+  --red-600: #c8322b;
+  --red-800: #8e1f1a;
+
+  --amber-50: #fdf1dc;
+  --amber-600: #c27a08;
+  --amber-800: #7a4c04;
+
+  --green-50: #e5f2ea;
+  --green-600: #3a8a5c;
+  --green-800: #1f5a3a;
+
+  /* Shape and space */
+  --size-radius-sm: 4px;
+  --size-radius-md: 6px;
+  --size-radius-lg: 8px;
+  --size-space-unit: 4px;
+
+  /* ---------- 2. Semantic tokens (light theme) ---------- */
+
+  /* Surfaces */
+  --ui-bg-app: var(--gray-25);
+  --ui-bg-surface: var(--gray-0);
+  --ui-bg-subtle: var(--gray-50);
+  --ui-bg-inverse: var(--gray-900);
+
+  /* Borders */
+  --ui-border-hairline: var(--gray-100);
+  --ui-border-strong: var(--gray-200);
+
+  /* Text */
+  --ui-text-primary: var(--gray-800);
+  --ui-text-heading: var(--gray-900);
+  --ui-text-secondary: var(--gray-600);
+  /* Tertiary: 4.9:1 on surface, 4.6:1 on app bg. Use secondary on bg-subtle. */
+  --ui-text-tertiary: var(--gray-500);
+  --ui-text-inverse: var(--gray-0);
+  --ui-text-disabled: var(--gray-400);
+
+  /* Accent */
+  --ui-accent: var(--indigo-600);
+  --ui-accent-hover: var(--indigo-700);
+  --ui-accent-subtle: var(--indigo-50);
+  --ui-on-accent: var(--gray-0);
+  --ui-focus-ring: var(--indigo-600);
+
+  /* Elevation: one shadow, for floating panels only */
+  --ui-shadow-floating: 0 4px 16px rgb(27 30 34 / 0.12), 0 1px 3px rgb(27 30 34 / 0.08);
+
+  /* Machine health: strong (dot, bar, icon), tint (pill bg), text (pill label) */
+  --health-critical-strong: var(--red-600);
+  --health-critical-tint: var(--red-50);
+  --health-critical-text: var(--red-800);
+
+  --health-warning-strong: var(--amber-600);
+  --health-warning-tint: var(--amber-50);
+  --health-warning-text: var(--amber-800);
+
+  --health-healthy-strong: var(--green-600);
+  --health-healthy-tint: var(--green-50);
+  --health-healthy-text: var(--green-800);
+
+  /* Unknown = no data / learning. Deliberately neutral, not a health colour. */
+  --health-unknown-strong: var(--gray-400);
+  --health-unknown-tint: var(--gray-50);
+  --health-unknown-text: var(--gray-600);
+}
