@@ -131,7 +131,7 @@ const specs: AssetSpec[] = [
     lastSeenHoursAgo: { 0: 72, 1: 72 },
   },
   { id: 'a16', siteId: 's2', tag: 'KB-F-208', name: 'Odour control fan', type: 'fan', rpm: 1470 },
-  // Ashgrove Cement Works
+  // Tallow Ridge Cement Works
   {
     id: 'a17',
     siteId: 's3',
