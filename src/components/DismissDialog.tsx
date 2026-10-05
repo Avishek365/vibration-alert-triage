@@ -21,6 +21,7 @@ export function DismissDialog({ subject, onConfirm, onCancel }: DismissDialogPro
   const titleId = useId()
   const noteId = useId()
   const errorId = useId()
+  const hintId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   const [reason, setReason] = useState<DismissReason | null>(null)
   const [note, setNote] = useState('')
@@ -93,6 +94,7 @@ export function DismissDialog({ subject, onConfirm, onCancel }: DismissDialogPro
   }
 
   const noteRequired = reason === 'other'
+  const noteMissing = noteRequired && !note.trim()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-inverse/40 p-4">
@@ -148,13 +150,21 @@ export function DismissDialog({ subject, onConfirm, onCancel }: DismissDialogPro
             value={note}
             required={noteRequired}
             aria-invalid={error && noteRequired ? true : undefined}
-            aria-describedby={error ? errorId : undefined}
+            aria-describedby={
+              [noteMissing && hintId, error && errorId].filter(Boolean).join(' ') || undefined
+            }
             onChange={(e) => {
               setNote(e.target.value)
               setError(null)
             }}
             className="mt-1 w-full rounded-md border border-strong bg-surface px-3 py-2 text-sm text-primary"
           />
+
+          {noteMissing && (
+            <p id={hintId} className="mt-1 text-xs text-secondary">
+              Add a note to dismiss with "Other".
+            </p>
+          )}
 
           {error && (
             <p id={errorId} role="alert" className="mt-2 text-sm text-primary">
@@ -172,7 +182,9 @@ export function DismissDialog({ subject, onConfirm, onCancel }: DismissDialogPro
             </button>
             <button
               type="submit"
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover"
+              disabled={noteMissing}
+              aria-describedby={noteMissing ? hintId : undefined}
+              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-strong disabled:text-secondary"
             >
               Dismiss
             </button>

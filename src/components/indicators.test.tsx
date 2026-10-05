@@ -72,22 +72,33 @@ describe('SensorStatusIndicator', () => {
     ...overrides,
   })
 
-  it('shows online quietly, with screen-reader text', () => {
-    render(<SensorStatusIndicator point={point({})} now={now} />)
-    expect(screen.getByText('Sensor online')).toHaveClass('sr-only')
+  const threeHoursAgo = new Date(now.getTime() - 3 * 3_600_000).toISOString()
+  const renderStatus = (overrides: Partial<MeasurementPoint>) => {
+    const { container, unmount } = render(
+      <SensorStatusIndicator point={point(overrides)} now={now} />,
+    )
+    const indicator = container.querySelector<HTMLElement>('[data-sensor]')!
+    return { indicator, svg: indicator.querySelector('svg')!.innerHTML, unmount }
+  }
+
+  it.each<[Partial<MeasurementPoint>, string]>([
+    [{ sensorStatus: 'online' }, 'Online'],
+    [{ sensorStatus: 'stale', lastSeenAt: threeHoursAgo }, 'Stale 3h'],
+    [{ sensorStatus: 'offline' }, 'Offline'],
+  ])('shows a visible text label: %o → %s', (overrides, label) => {
+    const { indicator } = renderStatus(overrides)
+    expect(indicator).toHaveTextContent(`Sensor ${label}`)
+    expect(screen.getByText('Sensor')).toHaveClass('sr-only')
+    expect(indicator).toBeVisible()
   })
 
-  it('shows stale with its age, and offline', () => {
-    const threeHoursAgo = new Date(now.getTime() - 3 * 3_600_000).toISOString()
-    const { rerender } = render(
-      <SensorStatusIndicator
-        point={point({ sensorStatus: 'stale', lastSeenAt: threeHoursAgo })}
-        now={now}
-      />,
-    )
-    expect(screen.getByText('Stale 3 h')).toBeVisible()
-    rerender(<SensorStatusIndicator point={point({ sensorStatus: 'offline' })} now={now} />)
-    expect(screen.getByText('Offline')).toBeVisible()
+  it('uses a distinct icon for each status', () => {
+    const icons = (['online', 'stale', 'offline'] as const).map((sensorStatus) => {
+      const { svg, unmount } = renderStatus({ sensorStatus })
+      unmount()
+      return svg
+    })
+    expect(new Set(icons).size).toBe(3)
   })
 
   it('never uses health colours or the accent', () => {

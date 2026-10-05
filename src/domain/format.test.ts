@@ -1,6 +1,7 @@
 import {
   describeEvidence,
   formatAge,
+  formatAgeCompact,
   formatExact,
   formatRelative,
   summariseEvidence,
@@ -21,6 +22,15 @@ describe('formatAge and formatRelative', () => {
     expect(formatAge(ago(ms), now)).toBe(age)
     expect(formatRelative(ago(ms), now)).toBe(relative)
   })
+})
+
+it.each([
+  [30_000, 'now'],
+  [45 * 60_000, '45m'],
+  [3 * 3_600_000, '3h'],
+  [72 * 3_600_000, '3d'],
+])('formatAgeCompact: %s ms → %s', (ms, expected) => {
+  expect(formatAgeCompact(ago(ms), now)).toBe(expected)
 })
 
 it('formats an exact time with its zone', () => {

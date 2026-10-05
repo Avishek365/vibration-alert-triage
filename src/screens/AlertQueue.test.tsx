@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { api } from '../api/mockApi'
 import { severityRank } from '../domain/health'
-import { formatExact } from '../domain/format'
+import { formatExact, summariseEvidence } from '../domain/format'
 import type { Alert } from '../domain/types'
 import { createQueryWrapper } from '../test/queryWrapper'
 import { AlertQueue } from './AlertQueue'
@@ -170,13 +170,26 @@ describe('keyboard triage', () => {
 
     await user.keyboard('d')
     const dialog = screen.getByRole('dialog')
-    await user.keyboard('5{Enter}')
+    const confirm = within(dialog).getByRole('button', { name: 'Dismiss' })
+    expect(within(dialog).getByRole('textbox', { name: 'Note (optional)' })).toBeInTheDocument()
+    expect(confirm).toBeEnabled()
+
+    await user.keyboard('5')
+    const note = within(dialog).getByRole('textbox', { name: 'Note (required)' })
+    expect(confirm).toBeDisabled()
+    expect(confirm).toHaveAccessibleDescription('Add a note to dismiss with "Other".')
+
+    // Enter is blocked too, with a message.
+    await user.keyboard('{Enter}')
     expect(dialog).toBeInTheDocument()
     expect(within(dialog).getByRole('alert')).toHaveTextContent('Add a note')
 
-    const note = within(dialog).getByRole('textbox', { name: /Note/ })
+    await user.type(note, '   ')
+    expect(confirm).toBeDisabled()
+    await user.clear(note)
     await user.type(note, 'jak 2 dup')
     expect(note).toHaveValue('jak 2 dup')
+    expect(confirm).toBeEnabled()
     expect(within(dialog).getByRole('radio', { name: /Other/ })).toBeChecked()
     await user.keyboard('{Enter}')
 
@@ -213,11 +226,20 @@ describe('full details on focus and selection', () => {
     expect(first).toHaveAccessibleDescription(expect.stringContaining(exact))
     expect(first).toHaveAccessibleDescription(expect.stringContaining(alert.evidence[0].bandLabel))
 
-    // Unselected rows keep details hidden until selected.
-    const secondDetails = document.getElementById(`${second.dataset.alertId}-details`)!
+    // The one-line summary is hidden while expanded, so evidence is not repeated.
+    expect(within(first).queryByText(summariseEvidence(alert.evidence))).not.toBeInTheDocument()
+
+    // Unselected rows show the summary and keep details hidden until selected.
+    const secondAlert = await alertById(second.dataset.alertId!)
+    const secondSummary = summariseEvidence(secondAlert.evidence)
+    const secondDetails = document.getElementById(`${secondAlert.id}-details`)!
+    expect(within(second).getByText(secondSummary)).toBeVisible()
     expect(secondDetails).not.toBeVisible()
+
     await user.click(second)
     expect(secondDetails).toBeVisible()
+    expect(within(second).queryByText(secondSummary)).not.toBeInTheDocument()
     expect(details).not.toBeVisible()
+    expect(within(first).getByText(summariseEvidence(alert.evidence))).toBeVisible()
   })
 })

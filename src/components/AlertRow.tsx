@@ -77,7 +77,8 @@ export function AlertRow({
             {site.name} · {point.name}
           </p>
           <p className="mt-1 text-sm font-medium text-primary">{FAULT_LABELS[alert.faultType]}</p>
-          <EvidenceLine evidence={alert.evidence} />
+          {/* The expanded details list every band, so the summary would repeat it. */}
+          {!selected && <EvidenceLine evidence={alert.evidence} />}
         </div>
 
         <div className="w-40 shrink-0 space-y-1">

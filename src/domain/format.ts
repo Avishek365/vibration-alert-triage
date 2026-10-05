@@ -26,7 +26,7 @@ export const STATUS_LABELS: Record<AlertStatus, string> = {
 }
 
 export const SENSOR_STATUS_LABELS: Record<SensorStatus, string> = {
-  online: 'Sensor online',
+  online: 'Online',
   stale: 'Stale',
   offline: 'Offline',
 }
@@ -42,6 +42,12 @@ export function formatAge(iso: string, now: Date): string {
   if (age < HOUR_MS) return `${Math.floor(age / MINUTE_MS)} min`
   if (age < 2 * DAY_MS) return `${Math.floor(age / HOUR_MS)} h`
   return `${Math.floor(age / DAY_MS)} d`
+}
+
+/** Compact age for tight labels, e.g. "45m", "3h", "2d". */
+export function formatAgeCompact(iso: string, now: Date): string {
+  const age = formatAge(iso, now)
+  return age === 'now' ? 'now' : age.replace(' min', 'm').replace(' ', '')
 }
 
 export function formatRelative(iso: string, now: Date): string {

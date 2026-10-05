@@ -1,11 +1,12 @@
-import { formatAge, formatExact } from '../domain/format'
+import { formatAgeCompact, formatExact, SENSOR_STATUS_LABELS } from '../domain/format'
 import type { MeasurementPoint } from '../domain/types'
 
-// Small and neutral, kept apart from the health badge: sensor status says
-// whether data is arriving, not whether the machine is healthy.
+// Small and neutral grey, kept apart from the health badge: sensor status says
+// whether data is arriving, not whether the machine is healthy. Each state has
+// its own icon and a text label: filled dot, half dot, slashed circle.
 function Icon({ status }: { status: MeasurementPoint['sensorStatus'] }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 10 10" className="size-2.5 shrink-0">
+    <svg aria-hidden="true" viewBox="0 0 10 10" className="size-3 shrink-0">
       {status === 'online' && <circle cx="5" cy="5" r="4" fill="currentColor" />}
       {status === 'stale' && (
         <>
@@ -34,9 +35,11 @@ export function SensorStatusIndicator({ point, now }: { point: MeasurementPoint;
       className="inline-flex items-center gap-1 text-xs text-tertiary"
     >
       <Icon status={sensorStatus} />
-      {sensorStatus === 'online' && <span className="sr-only">Sensor online</span>}
-      {sensorStatus === 'stale' && <span>Stale {formatAge(lastSeenAt, now)}</span>}
-      {sensorStatus === 'offline' && <span>Offline</span>}
+      <span>
+        <span className="sr-only">Sensor </span>
+        {SENSOR_STATUS_LABELS[sensorStatus]}
+        {sensorStatus === 'stale' && ` ${formatAgeCompact(lastSeenAt, now)}`}
+      </span>
     </span>
   )
 }
