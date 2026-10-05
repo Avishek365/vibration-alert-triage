@@ -1,6 +1,8 @@
 import { CONFIDENCE_BANDS, confidenceBand } from '../domain/confidence'
 import { assetHealth, sensorStatusFor, severityForReading } from '../domain/health'
+import { describeEvidence, formatHz } from '../domain/format'
 import { DISMISS_REASONS, FAULT_TYPES } from '../domain/types'
+import { EVIDENCE_BANDS } from './alerts'
 import { buildFixtures, buildTrend } from '.'
 import { TREND_POINTS } from './trends'
 
@@ -132,5 +134,38 @@ describe('buildTrend', () => {
   it('starts below the warning threshold and is deterministic', () => {
     expect(trend[0].value).toBeLessThan(alert.thresholds.warning)
     expect(buildTrend(alert)).toEqual(trend)
+  })
+})
+
+describe('evidence band labels', () => {
+  // A unit (Hz/kHz) or a numeric span such as "2–10" or "1×–5×" means the label carries a range.
+  const RANGE_IN_LABEL = /\d\s*k?Hz\b|\d×?\s*[–-]\s*\d/i
+
+  it.each(
+    Object.values(EVIDENCE_BANDS)
+      .flat()
+      .map((b) => [b.label]),
+  )('"%s" does not contain a range', (label) => {
+    expect(label).not.toMatch(RANGE_IN_LABEL)
+  })
+
+  it('no fixture evidence label contains its own range, which appears exactly once', () => {
+    const all = alerts.flatMap((a) => a.evidence)
+    expect(all.length).toBeGreaterThan(0)
+    for (const e of all) {
+      const low = formatHz(e.lowHz)
+      const high = formatHz(e.highHz)
+      expect(e.bandLabel).not.toMatch(RANGE_IN_LABEL)
+      expect(e.bandLabel).not.toContain(low)
+      expect(e.bandLabel).not.toContain(high)
+      const [line] = describeEvidence([e])
+      expect(line.startsWith(`${e.bandLabel} (${low}–${high}):`)).toBe(true)
+      expect(line.split(low).length - 1).toBe(1)
+    }
+  })
+
+  it('covers every band in the table', () => {
+    const used = new Set(alerts.flatMap((a) => a.evidence.map((e) => e.bandLabel)))
+    for (const band of Object.values(EVIDENCE_BANDS).flat()) expect(used).toContain(band.label)
   })
 })

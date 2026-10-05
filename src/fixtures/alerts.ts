@@ -320,21 +320,22 @@ const GEAR_TEETH = 27
 const PUMP_VANES = 6
 
 // Primary band first. Low-confidence alerts only report the primary band.
-const BANDS: Record<FaultType, [Band, Band]> = {
+// Labels name the band only; the range is shown once, from lowHz/highHz.
+export const EVIDENCE_BANDS: Record<FaultType, [Band, Band]> = {
   imbalance: [
     { label: '1× running speed', low: 0.95, high: 1.05 },
-    { label: '1× running speed (axial)', low: 0.95, high: 1.05 },
+    { label: '1× running speed, axial', low: 0.95, high: 1.05 },
   ],
   misalignment: [
     { label: '2× running speed', low: 1.95, high: 2.05 },
-    { label: '1× running speed (axial)', low: 0.95, high: 1.05 },
+    { label: '1× running speed, axial', low: 0.95, high: 1.05 },
   ],
   looseness: [
-    { label: '1×–5× running speed harmonics', low: 0.95, high: 5.05 },
+    { label: 'Running speed harmonics', low: 0.95, high: 5.05 },
     { label: '½× subharmonic', low: 0.45, high: 0.55 },
   ],
   bearing_wear: [
-    { label: 'Outer race defect band (BPFO)', low: 3.4, high: 3.7 },
+    { label: 'Outer race defect band, BPFO', low: 3.4, high: 3.7 },
     { label: 'High-frequency envelope', low: 1000, high: 4000, absolute: true },
   ],
   gear_mesh: [
@@ -342,14 +343,15 @@ const BANDS: Record<FaultType, [Band, Band]> = {
     { label: 'Gear mesh sidebands', low: GEAR_TEETH - 2, high: GEAR_TEETH + 2 },
   ],
   cavitation: [
-    { label: 'Broadband 2–10 kHz', low: 2000, high: 10000, absolute: true },
+    { label: 'Broadband high frequency', low: 2000, high: 10000, absolute: true },
     { label: 'Vane pass frequency', low: PUMP_VANES * 0.98, high: PUMP_VANES * 1.02 },
   ],
 }
 
 function evidenceFor(spec: AlertSpec, asset: Asset, random: () => number): Evidence[] {
   const shaftHz = asset.runningSpeedRpm / 60
-  const bands = spec.confidence >= 0.6 ? BANDS[spec.fault] : BANDS[spec.fault].slice(0, 1)
+  const bands =
+    spec.confidence >= 0.6 ? EVIDENCE_BANDS[spec.fault] : EVIDENCE_BANDS[spec.fault].slice(0, 1)
   return bands.map((band, index) => {
     const baseline = round(between(random, 0.3, 1.2))
     // Stronger evidence for higher confidence; secondary bands exceed less.

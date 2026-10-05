@@ -89,7 +89,7 @@ export function formatMmS(value: number): string {
   return `${value.toFixed(2)} mm/s`
 }
 
-function formatHz(value: number): string {
+export function formatHz(value: number): string {
   return value >= 1000 ? `${round1(value / 1000)} kHz` : `${round1(value)} Hz`
 }
 
