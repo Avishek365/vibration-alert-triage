@@ -78,27 +78,36 @@ describe('SensorStatusIndicator', () => {
       <SensorStatusIndicator point={point(overrides)} now={now} />,
     )
     const indicator = container.querySelector<HTMLElement>('[data-sensor]')!
-    return { indicator, svg: indicator.querySelector('svg')!.innerHTML, unmount }
+    return { indicator, svg: indicator.querySelector('svg')?.innerHTML, unmount }
   }
 
-  it.each<[Partial<MeasurementPoint>, string]>([
-    [{ sensorStatus: 'online' }, 'Online'],
-    [{ sensorStatus: 'stale', lastSeenAt: threeHoursAgo }, 'Stale 3h'],
-    [{ sensorStatus: 'offline' }, 'Offline'],
-  ])('shows a visible text label: %o → %s', (overrides, label) => {
-    const { indicator } = renderStatus(overrides)
-    expect(indicator).toHaveTextContent(`Sensor ${label}`)
-    expect(screen.getByText('Sensor')).toHaveClass('sr-only')
-    expect(indicator).toBeVisible()
+  it('shows nothing visible for an online sensor, but keeps tooltip and screen-reader text', () => {
+    const { indicator } = renderStatus({ sensorStatus: 'online' })
+    expect(indicator.querySelector('svg')).toBeNull()
+    expect(screen.getByText('Sensor online')).toHaveClass('sr-only')
+    // The only text is screen-reader text.
+    expect(indicator.textContent).toBe('Sensor online')
+    expect(indicator.title).toMatch(/^Sensor online · Last reading /)
   })
 
-  it('uses a distinct icon for each status', () => {
-    const icons = (['online', 'stale', 'offline'] as const).map((sensorStatus) => {
+  it.each<[Partial<MeasurementPoint>, string]>([
+    [{ sensorStatus: 'stale', lastSeenAt: threeHoursAgo }, 'Stale 3h'],
+    [{ sensorStatus: 'offline' }, 'Offline'],
+  ])('shows a visible icon and label when not online: %o → %s', (overrides, label) => {
+    const { indicator } = renderStatus(overrides)
+    expect(indicator.querySelector('svg')).not.toBeNull()
+    expect(indicator).toHaveTextContent(`Sensor ${label}`)
+    expect(screen.getByText('Sensor')).toHaveClass('sr-only')
+    expect(indicator.title).toMatch(new RegExp(`^Sensor ${overrides.sensorStatus} · Last reading `))
+  })
+
+  it('uses distinct icons for stale and offline', () => {
+    const icons = (['stale', 'offline'] as const).map((sensorStatus) => {
       const { svg, unmount } = renderStatus({ sensorStatus })
       unmount()
       return svg
     })
-    expect(new Set(icons).size).toBe(3)
+    expect(new Set(icons).size).toBe(2)
   })
 
   it('never uses health colours or the accent', () => {

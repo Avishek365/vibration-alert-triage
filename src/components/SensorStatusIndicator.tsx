@@ -1,4 +1,4 @@
-import { formatAgeCompact, formatExact, SENSOR_STATUS_LABELS } from '../domain/format'
+import { describeSensor, formatAgeCompact, SENSOR_STATUS_LABELS } from '../domain/format'
 import type { MeasurementPoint } from '../domain/types'
 
 // Small and neutral grey, kept apart from the health badge: sensor status says
@@ -24,15 +24,28 @@ function Icon({ status }: { status: MeasurementPoint['sensorStatus'] }) {
   )
 }
 
+/**
+ * Visible only when there is something to act on (stale or offline). An
+ * online sensor shows nothing, but keeps its tooltip and screen-reader text,
+ * and the line is still reserved so rows stay aligned.
+ */
 export function SensorStatusIndicator({ point, now }: { point: MeasurementPoint; now: Date }) {
   const { sensorStatus, lastSeenAt } = point
-  const lastSeen = `Last reading ${formatExact(lastSeenAt)}`
+  const description = describeSensor(sensorStatus, lastSeenAt)
+
+  if (sensorStatus === 'online') {
+    return (
+      <span data-sensor="online" title={description} className="block h-4">
+        <span className="sr-only">Sensor online</span>
+      </span>
+    )
+  }
 
   return (
     <span
       data-sensor={sensorStatus}
-      title={lastSeen}
-      className="inline-flex items-center gap-1 text-xs text-tertiary"
+      title={description}
+      className="flex h-4 items-center gap-1 text-xs text-tertiary"
     >
       <Icon status={sensorStatus} />
       <span>

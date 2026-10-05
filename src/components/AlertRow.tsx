@@ -1,6 +1,7 @@
 import type { Ref } from 'react'
 import {
   describeEvidence,
+  describeSensor,
   FAULT_LABELS,
   formatExact,
   formatMmS,
@@ -103,35 +104,29 @@ export function AlertRow({
           )}
         </div>
 
+        {/* Both action slots are always present so columns line up on every row.
+            An unavailable action keeps its space as a hidden placeholder. */}
         <div className="flex shrink-0 gap-2">
-          {alert.status === 'new' && (
-            <button
-              type="button"
-              tabIndex={tabIndex}
-              className={button}
-              onClick={(e) => {
-                e.stopPropagation()
-                onSelect()
-                onAcknowledge()
-              }}
-            >
-              Acknowledge <kbd className="text-xs text-tertiary">a</kbd>
-            </button>
-          )}
-          {alert.status !== 'dismissed' && (
-            <button
-              type="button"
-              tabIndex={tabIndex}
-              className={button}
-              onClick={(e) => {
-                e.stopPropagation()
-                onSelect()
-                onDismiss()
-              }}
-            >
-              Dismiss <kbd className="text-xs text-tertiary">d</kbd>
-            </button>
-          )}
+          <ActionSlot
+            show={alert.status === 'new'}
+            label="Acknowledge"
+            shortcut="a"
+            tabIndex={tabIndex}
+            onClick={() => {
+              onSelect()
+              onAcknowledge()
+            }}
+          />
+          <ActionSlot
+            show={alert.status !== 'dismissed'}
+            label="Dismiss"
+            shortcut="d"
+            tabIndex={tabIndex}
+            onClick={() => {
+              onSelect()
+              onDismiss()
+            }}
+          />
         </div>
       </div>
 
@@ -144,6 +139,7 @@ export function AlertRow({
         <p>
           Triggered <time dateTime={alert.triggeredAt}>{exact}</time>
         </p>
+        <p className="text-secondary">{describeSensor(point.sensorStatus, point.lastSeenAt)}</p>
         <p className="mt-2 font-medium">Evidence</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5 text-secondary tabular-nums">
           {describeEvidence(alert.evidence).map((line) => (
@@ -152,5 +148,42 @@ export function AlertRow({
         </ul>
       </div>
     </li>
+  )
+}
+
+interface ActionSlotProps {
+  show: boolean
+  label: string
+  shortcut: string
+  tabIndex: number
+  onClick: () => void
+}
+
+function ActionSlot({ show, label, shortcut, tabIndex, onClick }: ActionSlotProps) {
+  const content = (
+    <>
+      {label} <kbd className="text-xs text-tertiary">{shortcut}</kbd>
+    </>
+  )
+  if (!show) {
+    // Same size as the button, but invisible and not a control.
+    return (
+      <span aria-hidden="true" data-placeholder={label} className={`${button} invisible`}>
+        {content}
+      </span>
+    )
+  }
+  return (
+    <button
+      type="button"
+      tabIndex={tabIndex}
+      className={button}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+    >
+      {content}
+    </button>
   )
 }

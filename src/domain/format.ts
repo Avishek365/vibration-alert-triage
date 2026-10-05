@@ -76,6 +76,15 @@ export function formatExact(iso: string, timeZone?: string): string {
   return `${part('day')} ${month} ${part('year')}, ${part('hour')}:${part('minute')} ${part('timeZoneName')}`
 }
 
+/** Full sensor sentence for tooltips and screen readers. */
+export function describeSensor(
+  status: SensorStatus,
+  lastSeenAt: string,
+  timeZone?: string,
+): string {
+  return `Sensor ${status} · Last reading ${formatExact(lastSeenAt, timeZone)}`
+}
+
 export function formatMmS(value: number): string {
   return `${value.toFixed(2)} mm/s`
 }
