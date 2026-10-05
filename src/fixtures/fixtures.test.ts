@@ -5,6 +5,7 @@ import { DISMISS_REASONS, FAULT_TYPES } from '../domain/types'
 import { EVIDENCE_BANDS } from './alerts'
 import { buildFixtures, buildTrend } from '.'
 import { trendWindow } from '../domain/trend'
+import { explainConfidence } from '../domain/confidence'
 import { TECHNICIANS } from './alerts'
 
 const now = new Date('2026-09-30T08:00:00Z')
@@ -219,4 +220,50 @@ describe('evidence band labels', () => {
     const used = new Set(alerts.flatMap((a) => a.evidence.map((e) => e.bandLabel)))
     for (const band of Object.values(EVIDENCE_BANDS).flat()) expect(used).toContain(band.label)
   })
+})
+
+describe('special states and explanations', () => {
+  const pointOf = (alert: (typeof alerts)[number]) =>
+    assets.find((a) => a.id === alert.assetId)!.points.find((p) => p.id === alert.pointId)!
+
+  it('includes a "model was wrong" correction', () => {
+    expect(alerts.some((a) => a.status === 'dismissed' && a.dismissReason === 'model_wrong')).toBe(
+      true,
+    )
+  })
+
+  it('includes an open critical alert whose own sensor went offline', () => {
+    const match = alerts.find(
+      (a) =>
+        a.severity === 'critical' &&
+        a.status !== 'dismissed' &&
+        pointOf(a).sensorStatus === 'offline',
+    )
+    expect(match).toBeDefined()
+  })
+
+  it('gives every alert below high confidence a different, less likely runner-up fault', () => {
+    for (const alert of alerts) {
+      if (alert.confidence >= 0.8) {
+        expect(alert.alternativeFault).toBeUndefined()
+        continue
+      }
+      expect(alert.alternativeFault!.faultType).not.toBe(alert.faultType)
+      expect(alert.alternativeFault!.confidence).toBeLessThan(alert.confidence)
+    }
+  })
+
+  it.each(alerts.map((a) => [a.id, a] as const))(
+    '%s: has a plain-language explanation phrased as tendencies',
+    (_, alert) => {
+      const { heading, points } = explainConfidence(alert, pointOf(alert), now)
+      expect(heading).toBeTruthy()
+      expect(points.length).toBeGreaterThan(0)
+      for (const p of points) {
+        // Domain statements are tendencies; the sensor sentence is a plain fact.
+        if (!p.startsWith('This sensor stopped')) expect(p).toMatch(/\b(often|typically)\b/)
+        expect(p).not.toMatch(/\b(always|never|definitely|certainly)\b/i)
+      }
+    },
+  )
 })

@@ -4,10 +4,12 @@ import { ConfidencePanel } from '../components/ConfidencePanel'
 import { DismissDialog } from '../components/DismissDialog'
 import { EvidenceTable } from '../components/EvidenceTable'
 import { HealthIndicator } from '../components/HealthIndicator'
+import { CorrectionBanner, SensorQuietBanner } from '../components/StateBanners'
 import { ErrorState } from '../components/QueueStates'
 import { TrendSection } from '../components/TrendSection'
 import { TriageHistory } from '../components/TriageHistory'
 import { FAULT_LABELS, STATUS_LABELS, formatMmS } from '../domain/format'
+import { useNow } from '../hooks/useNow'
 import { useAcknowledgeAlert, useAlert, useAlertTrend, useDismissAlert } from '../queries/alerts'
 
 interface AlertDetailProps {
@@ -40,6 +42,7 @@ export function AlertDetail({ id, backHref, onBack }: AlertDetailProps) {
   const [dismissing, setDismissing] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const now = useNow()
 
   // Move focus to the heading once the alert has loaded, so screen readers start here.
   const loaded = detail.isSuccess
@@ -164,6 +167,18 @@ export function AlertDetail({ id, backHref, onBack }: AlertDetailProps) {
         </div>
       </header>
 
+      {alert.status === 'dismissed' && alert.dismissReason === 'model_wrong' && (
+        <CorrectionBanner alert={alert} />
+      )}
+      {point.sensorStatus !== 'online' && (
+        <SensorQuietBanner
+          point={point}
+          thresholds={alert.thresholds}
+          lastReading={trend.data?.points.at(-1)?.value}
+          now={now}
+        />
+      )}
+
       <p role="status" aria-live="polite" className="min-h-5 text-sm text-primary">
         {notice}
       </p>
@@ -182,7 +197,7 @@ export function AlertDetail({ id, backHref, onBack }: AlertDetailProps) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Model confidence">
-          <ConfidencePanel alert={alert} />
+          <ConfidencePanel alert={alert} point={point} now={now} />
         </Card>
         <Card title="Triage history">
           <TriageHistory alert={alert} />

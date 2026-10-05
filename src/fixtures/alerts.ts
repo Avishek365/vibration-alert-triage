@@ -381,6 +381,27 @@ function readingFor(spec: AlertSpec, asset: Asset, random: () => number): number
     : round(between(random, warning, critical - 0.05))
 }
 
+// Faults that tend to be confused with each other in vibration data.
+const LOOKALIKE: Record<FaultType, FaultType> = {
+  imbalance: 'misalignment',
+  misalignment: 'imbalance',
+  bearing_wear: 'looseness',
+  looseness: 'bearing_wear',
+  gear_mesh: 'bearing_wear',
+  cavitation: 'bearing_wear',
+}
+
+/** Runner-up fault for alerts below high confidence. Derived, so it uses no randomness. */
+function alternativeFor(spec: AlertSpec) {
+  if (spec.confidence >= 0.8) return {}
+  return {
+    alternativeFault: {
+      faultType: LOOKALIKE[spec.fault],
+      confidence: round((1 - spec.confidence) * 0.6),
+    },
+  }
+}
+
 const technician = (index: number) => TECHNICIANS[index % TECHNICIANS.length]
 
 export function buildAlerts(now: Date, assets: readonly Asset[], random: () => number): Alert[] {
@@ -405,6 +426,7 @@ export function buildAlerts(now: Date, assets: readonly Asset[], random: () => n
       reading: readingFor(spec, asset, random),
       thresholds: { ...asset.points[spec.point].thresholds },
       triggeredAt: new Date(triggered).toISOString(),
+      ...alternativeFor(spec),
     }
 
     switch (spec.state.status) {

@@ -92,6 +92,8 @@ interface AlertBase {
   reading: number
   thresholds: Thresholds
   triggeredAt: string
+  /** The model's runner-up fault, when it was not confident. */
+  alternativeFault?: { faultType: FaultType; confidence: number }
 }
 
 export interface NewAlert extends AlertBase {

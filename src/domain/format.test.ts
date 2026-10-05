@@ -2,6 +2,8 @@ import {
   describeEvidence,
   formatAge,
   formatAgeCompact,
+  formatAxisTime,
+  formatDayTime,
   formatExact,
   formatRelative,
   summariseEvidence,
@@ -35,6 +37,12 @@ it.each([
 
 it('formats an exact time with its zone', () => {
   expect(formatExact('2026-09-30T06:30:00.000Z', 'UTC')).toBe('30 Sep 2026, 06:30 UTC')
+})
+
+it('writes single-digit days without a leading zero', () => {
+  expect(formatExact('2026-10-03T21:05:00.000Z', 'UTC')).toBe('3 Oct 2026, 21:05 UTC')
+  expect(formatDayTime('2026-10-03T21:05:00.000Z', 'UTC')).toBe('3 Oct, 21:05')
+  expect(formatAxisTime('2026-10-03T00:00:00.000Z', 'UTC')).toBe('3 Oct')
 })
 
 const evidence: Evidence[] = [

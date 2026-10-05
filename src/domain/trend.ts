@@ -89,5 +89,11 @@ export function describeTrend(trend: AlertTrend, alert: Alert, timeZone?: string
     }.`,
   )
 
+  if (trend.sensorStatus !== 'online') {
+    sentences.push(
+      `Readings stop at ${at(trend.lastReadingAt)} because the sensor stopped reporting. The time after that is missing data, not a steady or healthy signal.`,
+    )
+  }
+
   return sentences.join(' ')
 }

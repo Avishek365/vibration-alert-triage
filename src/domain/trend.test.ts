@@ -65,6 +65,14 @@ describe('describeTrend', () => {
     )
   })
 
+  it('says where readings stop when the sensor went quiet', () => {
+    const quiet: AlertTrend = { ...trend, sensorStatus: 'offline' }
+    expect(describeTrend(quiet, alert, 'UTC')).toMatch(
+      /Readings stop at 30 Sep, 05:00 because the sensor stopped reporting\. The time after that is missing data, not a steady or healthy signal\.$/,
+    )
+    expect(describeTrend(trend, alert, 'UTC')).not.toMatch(/missing data/)
+  })
+
   it('handles an empty trend', () => {
     expect(describeTrend({ ...trend, points: [] }, alert)).toBe('No readings in this period.')
   })

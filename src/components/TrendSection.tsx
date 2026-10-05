@@ -79,6 +79,14 @@ export function TrendSection({ trend, alert }: { trend: AlertTrend; alert: Alert
                     </td>
                   </tr>
                 ))}
+                {trend.sensorStatus !== 'online' && (
+                  <tr className="border-t border-hairline bg-subtle">
+                    <td colSpan={3} className="px-3 py-2 text-primary">
+                      No readings after {formatDayTime(trend.lastReadingAt)}: the sensor stopped
+                      reporting.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -51,6 +51,7 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
   const plotW = Math.max(width - MARGIN.left - MARGIN.right, 1)
   const plotH = height - MARGIN.top - MARGIN.bottom
   const readoutId = useId()
+  const hatchId = `hatch-${useId().replace(/:/g, '')}`
 
   const { points } = trend
   const start = Date.parse(trend.windowStart)
@@ -77,6 +78,11 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
   const triggerVisible = trigger >= start && trigger <= end
   const last = points.at(-1)
   const current = active === null ? null : points[active]
+  // A quiet sensor leaves the rest of the window empty: shade it and say so.
+  const gapStart = trend.sensorStatus === 'online' ? null : Date.parse(trend.lastReadingAt)
+  const gapX = gapStart === null ? 0 : x(Math.max(gapStart, start))
+  const gapWidth = width - MARGIN.right - gapX
+  const gapLabelInside = gapWidth >= 150
 
   function nearestIndex(clientX: number, rect: DOMRect) {
     const ms = start + ((clientX - rect.left - MARGIN.left) / plotW) * (end - start)
@@ -209,6 +215,41 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
                 className="fill-secondary text-xs"
               >
                 Alert raised {formatDayTime(triggeredAt)}
+              </text>
+            </g>
+          )}
+
+          {gapStart !== null && gapWidth > 0 && (
+            <g data-gap>
+              <defs>
+                <pattern
+                  id={hatchId}
+                  width="6"
+                  height="6"
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(45)"
+                >
+                  <line x1="0" y1="0" x2="0" y2="6" className="stroke-strong" strokeWidth="2" />
+                </pattern>
+              </defs>
+              <rect
+                x={gapX}
+                y={MARGIN.top}
+                width={gapWidth}
+                height={plotH}
+                fill={`url(#${hatchId})`}
+                className="opacity-70"
+              />
+              <text
+                x={gapLabelInside ? gapX + gapWidth / 2 : width - MARGIN.right - 4}
+                y={MARGIN.top + 16}
+                textAnchor={gapLabelInside ? 'middle' : 'end'}
+                className="fill-primary stroke-surface text-xs font-medium"
+                strokeWidth={4}
+                strokeLinejoin="round"
+                paintOrder="stroke"
+              >
+                No data since {formatDayTime(trend.lastReadingAt)}
               </text>
             </g>
           )}

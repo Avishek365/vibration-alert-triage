@@ -119,3 +119,35 @@ it('fits narrow containers: fills the width, with fewer time labels', () => {
     spy.mockRestore()
   }
 })
+
+it('stops the line at the last reading and labels the gap when the sensor went quiet', () => {
+  const quiet: AlertTrend = {
+    ...trend,
+    sensorStatus: 'offline',
+    lastReadingAt: trend.points.at(-1)!.at,
+    windowEnd: iso(end + 20 * HOUR),
+    windowStart: iso(end - 28 * HOUR),
+  }
+  const { container } = render(
+    <TrendChart
+      trend={quiet}
+      thresholds={thresholds}
+      triggeredAt={iso(end - HOUR)}
+      descriptionId="d"
+    />,
+  )
+  const gap = container.querySelector('[data-gap]')!
+  expect(gap).toHaveTextContent(`No data since ${formatDayTime(quiet.lastReadingAt)}`)
+  const rectX = Number(gap.querySelector('rect')!.getAttribute('x'))
+  // The line's last point sits at the start of the gap: nothing is drawn through it.
+  const lastX = Number(
+    container.querySelector('path')!.getAttribute('d')!.split(/[ML]/).at(-1)!.split(',')[0],
+  )
+  expect(lastX).toBeCloseTo(rectX, 0)
+  expect(gap.innerHTML).not.toMatch(/health-/)
+})
+
+it('shows no gap for an online sensor', () => {
+  const { container } = renderChart()
+  expect(container.querySelector('[data-gap]')).toBeNull()
+})

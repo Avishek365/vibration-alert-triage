@@ -135,3 +135,73 @@ describe('content', () => {
     expect(offenders).toEqual([])
   })
 })
+
+describe('special states', () => {
+  async function findAlert(predicate: (d: Awaited<ReturnType<typeof api.getAlert>>) => boolean) {
+    for (const alert of await api.listAlerts({ status: ['new', 'acknowledged', 'dismissed'] })) {
+      const detail = await api.getAlert(alert.id)
+      if (predicate(detail)) return detail
+    }
+    throw new Error('No matching fixture alert')
+  }
+
+  it('shows "model was wrong" as a correction, with the original estimate', async () => {
+    const { alert } = await findAlert(
+      ({ alert }) => alert.status === 'dismissed' && alert.dismissReason === 'model_wrong',
+    )
+    renderApp(`/?alert=${alert.id}`)
+    await detailHeading()
+    const banner = screen.getByRole('region', { name: 'Corrected by technician' })
+    expect(banner).toHaveTextContent('Recorded as feedback on this alert.')
+    expect(banner.innerHTML).not.toMatch(/health-/)
+    const confidence = screen.getByRole('region', { name: 'Model confidence' })
+    expect(confidence).toHaveTextContent('Original model estimate')
+    expect(confidence).toHaveTextContent("The model's best match was")
+  })
+
+  it('shows when the sensor went quiet, with the last reading, and never as healthy', async () => {
+    const { alert, point } = await findAlert(
+      ({ alert, point }) => alert.severity === 'critical' && point.sensorStatus === 'offline',
+    )
+    const { user } = renderApp(`/?alert=${alert.id}`)
+    await detailHeading()
+    const trend = await api.getAlertTrend(alert.id)
+    const last = trend.points.at(-1)!
+
+    const banner = await screen.findByRole('region', {
+      name: /^Sensor stopped reporting \d+ h ago$/,
+    })
+    expect(banner).toHaveTextContent('are missing, not normal')
+    await waitFor(() =>
+      expect(banner).toHaveTextContent(`The last reading, ${last.value.toFixed(2)} mm/s, was`),
+    )
+
+    const chart = await screen.findByRole('group', { name: /Vibration velocity/ })
+    expect(chart).toHaveAccessibleDescription(/missing data, not a steady or healthy signal/)
+    expect(chart.querySelector('[data-gap]')).not.toBeNull()
+    expect(trend.lastReadingAt).toBe(point.lastSeenAt)
+
+    await user.click(screen.getByRole('button', { name: 'Show data table' }))
+    expect(screen.getByRole('region', { name: 'Vibration readings' })).toHaveTextContent(
+      'the sensor stopped reporting',
+    )
+
+    // Confidence explanation mentions the gap too.
+    expect(screen.getByRole('region', { name: 'Model confidence' })).toHaveTextContent(
+      /This sensor stopped reporting \d+ h ago/,
+    )
+  })
+
+  it('explains confidence in plain words', async () => {
+    const { alert } = await findAlert(
+      ({ alert }) => alert.confidence < 0.6 && alert.status === 'new',
+    )
+    renderApp(`/?alert=${alert.id}`)
+    await detailHeading()
+    const confidence = screen.getByRole('region', { name: 'Model confidence' })
+    expect(
+      within(confidence).getByRole('heading', { name: 'What the model is unsure about' }),
+    ).toBeInTheDocument()
+    expect(confidence).toHaveTextContent(/often look similar in vibration data/)
+  })
+})

@@ -72,7 +72,8 @@ function dateParts(iso: string, timeZone?: string) {
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)?.value ?? ''
   return {
-    day: `${part('day')} ${MONTHS[Number(part('month')) - 1]}`,
+    // Number() drops the leading zero some engines add ("03 Oct" becomes "3 Oct").
+    day: `${Number(part('day'))} ${MONTHS[Number(part('month')) - 1]}`,
     year: part('year'),
     clock: `${part('hour')}:${part('minute')}`,
     zone: part('timeZoneName'),

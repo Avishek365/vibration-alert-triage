@@ -156,7 +156,7 @@ const specs: AssetSpec[] = [
     name: 'Raw mill motor',
     type: 'motor',
     rpm: 1490,
-    lastSeenHoursAgo: { 1: 30 },
+    lastSeenHoursAgo: { 0: 30 },
   },
   {
     id: 'a21',
