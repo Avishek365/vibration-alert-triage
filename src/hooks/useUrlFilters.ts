@@ -44,6 +44,11 @@ export function serialiseFilters(filters: AlertFilters): string {
     params.set('status', filters.status.join(','))
   }
   if (filters.confidence?.length) params.set('confidence', filters.confidence.join(','))
+  return toQuery(params)
+}
+
+/** "?a=1&b=x,y" (commas kept readable), or "" when empty. */
+export function toQuery(params: URLSearchParams): string {
   const query = params.toString().replaceAll('%2C', ',')
   return query ? `?${query}` : ''
 }
@@ -52,12 +57,18 @@ export function hasActiveFilters(filters: AlertFilters): boolean {
   return serialiseFilters(filters) !== ''
 }
 
-function subscribe(onChange: () => void) {
+export function subscribe(onChange: () => void) {
   window.addEventListener('popstate', onChange)
   return () => window.removeEventListener('popstate', onChange)
 }
 
-const getSearch = () => window.location.search
+export const getSearch = () => window.location.search
+
+/** Push a new query string and notify every URL-backed hook. */
+export function navigate(query: string, state: unknown = null) {
+  window.history.pushState(state, '', `${window.location.pathname}${query}${window.location.hash}`)
+  window.dispatchEvent(new PopStateEvent('popstate', { state }))
+}
 
 /** Filters stored in the URL. Each change adds a history entry, so Back undoes it. */
 export function useUrlFilters() {
@@ -67,8 +78,7 @@ export function useUrlFilters() {
   const setFilters = useCallback((next: AlertFilters) => {
     const query = serialiseFilters(next)
     if (query === window.location.search) return
-    window.history.pushState(null, '', `${window.location.pathname}${query}${window.location.hash}`)
-    window.dispatchEvent(new PopStateEvent('popstate'))
+    navigate(query)
   }, [])
 
   return [filters, setFilters] as const

@@ -4,6 +4,9 @@ import { confidenceBand } from './confidence'
 import { severityRank } from './health'
 import type { Alert, AlertFilters, DismissInput, DismissedAlert } from './types'
 
+/** How actions by the person using the app are attributed. */
+export const CURRENT_USER = 'You'
+
 export function canAcknowledge(alert: Alert): boolean {
   return alert.status === 'new'
 }
@@ -20,18 +23,24 @@ export function validateDismissInput(input: DismissInput): string | null {
   return null
 }
 
-export function acknowledge(alert: Alert, at: Date): Alert {
+export function acknowledge(alert: Alert, at: Date, by: string = CURRENT_USER): Alert {
   if (!canAcknowledge(alert)) return alert
-  return { ...alert, status: 'acknowledged', acknowledgedAt: at.toISOString() }
+  return { ...alert, status: 'acknowledged', acknowledgedAt: at.toISOString(), acknowledgedBy: by }
 }
 
-export function dismiss(alert: Alert, input: DismissInput, at: Date): Alert {
+export function dismiss(
+  alert: Alert,
+  input: DismissInput,
+  at: Date,
+  by: string = CURRENT_USER,
+): Alert {
   if (!canDismiss(alert)) return alert
   const note = input.note?.trim()
   const dismissed: DismissedAlert = {
     ...alert,
     status: 'dismissed',
     dismissedAt: at.toISOString(),
+    dismissedBy: by,
     dismissReason: input.reason,
     ...(note ? { dismissNote: note } : {}),
   }

@@ -4,7 +4,8 @@ import { describeEvidence, formatHz } from '../domain/format'
 import { DISMISS_REASONS, FAULT_TYPES } from '../domain/types'
 import { EVIDENCE_BANDS } from './alerts'
 import { buildFixtures, buildTrend } from '.'
-import { TREND_POINTS } from './trends'
+import { trendWindow } from '../domain/trend'
+import { TECHNICIANS } from './alerts'
 
 const now = new Date('2026-09-30T08:00:00Z')
 const { sites, assets, alerts } = buildFixtures(now)
@@ -122,19 +123,69 @@ it('includes a critical asset with an offline sensor, showing the two are indepe
 })
 
 describe('buildTrend', () => {
-  const alert = alerts[0]
-  const trend = buildTrend(alert)
+  const HOUR = 3_600_000
+  const pointOf = (alert: (typeof alerts)[number]) =>
+    assets.find((a) => a.id === alert.assetId)!.points.find((p) => p.id === alert.pointId)!
 
-  it('has hourly points ending at the alert reading', () => {
-    expect(trend).toHaveLength(TREND_POINTS)
-    expect(trend.at(-1)).toEqual({ at: alert.triggeredAt, value: alert.reading })
-    expect(Date.parse(trend[1].at) - Date.parse(trend[0].at)).toBe(3_600_000)
+  it.each(alerts.map((a) => [a.id, a] as const))(
+    '%s: hourly readings inside the window, including the alert reading',
+    (_, alert) => {
+      const point = pointOf(alert)
+      const trend = buildTrend(alert, point, now)
+      const { start, end } = trendWindow(alert.triggeredAt, now)
+      expect(trend.windowStart).toBe(start.toISOString())
+      expect(trend.windowEnd).toBe(end.toISOString())
+      expect(trend.points.find((p) => p.at === alert.triggeredAt)?.value).toBe(alert.reading)
+
+      const times = trend.points.map((p) => Date.parse(p.at))
+      for (const t of times) {
+        expect(t).toBeGreaterThanOrEqual(start.getTime())
+        expect(t).toBeLessThanOrEqual(
+          Math.min(end.getTime(), Date.parse(point.lastSeenAt), now.getTime()) + 1,
+        )
+      }
+      // Hourly steps, except a quiet sensor's final reading, which may be closer.
+      for (let i = 1; i < times.length - 1; i++) expect(times[i] - times[i - 1]).toBe(HOUR)
+      expect(trend.lastReadingAt).toBe(trend.points.at(-1)!.at)
+    },
+  )
+
+  it('starts below the warning limit for recent alerts and is deterministic', () => {
+    const alert = alerts[0]
+    const trend = buildTrend(alert, pointOf(alert), now)
+    expect(trend.points[0].value).toBeLessThan(alert.thresholds.warning)
+    expect(buildTrend(alert, pointOf(alert), now)).toEqual(trend)
   })
 
-  it('starts below the warning threshold and is deterministic', () => {
-    expect(trend[0].value).toBeLessThan(alert.thresholds.warning)
-    expect(buildTrend(alert)).toEqual(trend)
+  it('stops at the last reading when the sensor is quiet', () => {
+    const quiet = alerts.filter((a) => pointOf(a).sensorStatus !== 'online')
+    expect(quiet.length).toBeGreaterThan(0)
+    for (const alert of quiet) {
+      const point = pointOf(alert)
+      const trend = buildTrend(alert, point, now)
+      expect(trend.lastReadingAt).toBe(point.lastSeenAt)
+      expect(trend.sensorStatus).toBe(point.sensorStatus)
+    }
   })
+})
+
+it('never raises an alert after its sensor stopped reporting', () => {
+  for (const alert of alerts) {
+    const point = assets
+      .find((a) => a.id === alert.assetId)!
+      .points.find((p) => p.id === alert.pointId)!
+    expect(alert.triggeredAt <= point.lastSeenAt).toBe(true)
+  }
+})
+
+it('attributes triage actions to fictional technicians', () => {
+  for (const alert of alerts) {
+    if (alert.status === 'acknowledged') expect(TECHNICIANS).toContain(alert.acknowledgedBy)
+    if (alert.status === 'dismissed') {
+      expect(TECHNICIANS).toContain(alert.dismissedBy)
+      if (alert.acknowledgedAt) expect(TECHNICIANS).toContain(alert.acknowledgedBy)
+    }
+  }
 })
 
 describe('evidence band labels', () => {

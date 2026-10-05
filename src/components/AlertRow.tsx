@@ -24,6 +24,7 @@ interface AlertRowProps {
   onSelect: () => void
   onAcknowledge: () => void
   onDismiss: () => void
+  onOpen: () => void
 }
 
 const button =
@@ -40,6 +41,7 @@ export function AlertRow({
   onSelect,
   onAcknowledge,
   onDismiss,
+  onOpen,
 }: AlertRowProps) {
   const titleId = `${alert.id}-title`
   const detailsId = `${alert.id}-details`
@@ -69,7 +71,19 @@ export function AlertRow({
 
         <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
           <p id={titleId} className="truncate font-medium text-heading">
-            {asset.name} <span className="font-normal text-tertiary">{asset.tag}</span>
+            <a
+              href={`?alert=${encodeURIComponent(alert.id)}`}
+              tabIndex={tabIndex}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onOpen()
+              }}
+              className="hover:underline"
+            >
+              {asset.name}
+            </a>{' '}
+            <span className="font-normal text-tertiary">{asset.tag}</span>
             <span className="sr-only">
               , {alert.severity} {FAULT_LABELS[alert.faultType]}
             </span>

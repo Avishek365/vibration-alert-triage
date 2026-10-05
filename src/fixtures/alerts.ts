@@ -18,6 +18,14 @@ interface AlertSpec {
   state: StatusSpec
 }
 
+// Fictional technicians. Names are invented and not meant to match any real person.
+export const TECHNICIANS = [
+  'Tess Marrowby',
+  'Idris Fenwick-Hale',
+  'Noor Altenby',
+  'Calum Brightwater',
+]
+
 const NEW = { status: 'new' } as const
 const ACK = { status: 'acknowledged' } as const
 
@@ -373,6 +381,8 @@ function readingFor(spec: AlertSpec, asset: Asset, random: () => number): number
     : round(between(random, warning, critical - 0.05))
 }
 
+const technician = (index: number) => TECHNICIANS[index % TECHNICIANS.length]
+
 export function buildAlerts(now: Date, assets: readonly Asset[], random: () => number): Alert[] {
   const assetsById = new Map(assets.map((a) => [a.id, a]))
 
@@ -401,13 +411,21 @@ export function buildAlerts(now: Date, assets: readonly Asset[], random: () => n
       case 'new':
         return { ...base, status: 'new' }
       case 'acknowledged':
-        return { ...base, status: 'acknowledged', acknowledgedAt: afterTrigger(0.2) }
+        return {
+          ...base,
+          status: 'acknowledged',
+          acknowledgedAt: afterTrigger(0.2),
+          acknowledgedBy: technician(index),
+        }
       case 'dismissed':
         return {
           ...base,
           status: 'dismissed',
-          ...(spec.state.acknowledged ? { acknowledgedAt: afterTrigger(0.1) } : {}),
+          ...(spec.state.acknowledged
+            ? { acknowledgedAt: afterTrigger(0.1), acknowledgedBy: technician(index + 1) }
+            : {}),
           dismissedAt: afterTrigger(0.3),
+          dismissedBy: technician(index),
           dismissReason: spec.state.reason,
           ...(spec.state.note ? { dismissNote: spec.state.note } : {}),
         }

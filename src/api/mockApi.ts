@@ -15,12 +15,12 @@ import type {
   Alert,
   AlertDetail,
   AlertFilters,
+  AlertTrend,
   AssetDetail,
   AssetFilters,
   AssetSummary,
   DismissInput,
   Site,
-  TrendPoint,
 } from '../domain/types'
 import { buildFixtures, buildTrend, type Fixtures } from '../fixtures'
 
@@ -134,8 +134,14 @@ export function createMockApi(options: MockApiOptions = {}) {
         return { alert, asset, site, point }
       }),
 
-    getAlertTrend: (id: string): Promise<TrendPoint[]> =>
-      respond('getAlertTrend', () => buildTrend(findAlert(id))),
+    getAlertTrend: (id: string): Promise<AlertTrend> =>
+      respond('getAlertTrend', () => {
+        const alert = findAlert(id)
+        const point = db.assets
+          .find((a) => a.id === alert.assetId)!
+          .points.find((p) => p.id === alert.pointId)!
+        return buildTrend(alert, point, now())
+      }),
 
     acknowledgeAlert: (id: string): Promise<Alert> =>
       respond('acknowledgeAlert', () => {

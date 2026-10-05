@@ -10,7 +10,7 @@ import { AlertQueue } from './AlertQueue'
 function renderQueue(url = '/') {
   window.history.replaceState(null, '', url)
   const { wrapper } = createQueryWrapper()
-  return { user: userEvent.setup(), ...render(<AlertQueue />, { wrapper }) }
+  return { user: userEvent.setup(), ...render(<AlertQueue onOpen={() => {}} />, { wrapper }) }
 }
 
 /** Top-level queue rows (evidence bullet points are nested list items too). */

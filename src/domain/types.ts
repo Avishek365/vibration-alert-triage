@@ -101,12 +101,16 @@ export interface NewAlert extends AlertBase {
 export interface AcknowledgedAlert extends AlertBase {
   status: 'acknowledged'
   acknowledgedAt: string
+  /** Who acknowledged it: a fictional technician in fixtures, "You" for the current user. */
+  acknowledgedBy: string
 }
 
 export interface DismissedAlert extends AlertBase {
   status: 'dismissed'
   acknowledgedAt?: string
+  acknowledgedBy?: string
   dismissedAt: string
+  dismissedBy: string
   dismissReason: DismissReason
   /** Required when the reason is `other`. */
   dismissNote?: string
@@ -122,6 +126,16 @@ export interface DismissInput {
 export interface TrendPoint {
   at: string
   value: number
+}
+
+/** Hourly readings for the chart, plus the window they are drawn in. */
+export interface AlertTrend {
+  points: TrendPoint[]
+  windowStart: string
+  windowEnd: string
+  /** Time of the last reading received. Readings stop here when the sensor goes quiet. */
+  lastReadingAt: string
+  sensorStatus: SensorStatus
 }
 
 export interface AlertFilters {

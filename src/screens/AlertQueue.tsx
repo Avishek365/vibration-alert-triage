@@ -12,7 +12,13 @@ import { DEFAULT_STATUS, hasActiveFilters, useUrlFilters } from '../hooks/useUrl
 import { useAcknowledgeAlert, useAlerts, useDismissAlert } from '../queries/alerts'
 import { useAssets, useSites } from '../queries/assets'
 
-export function AlertQueue() {
+interface AlertQueueProps {
+  onOpen: (id: string) => void
+  /** Row to select and focus once loaded, e.g. the alert just returned from. */
+  focusAlertId?: string | null
+}
+
+export function AlertQueue({ onOpen, focusAlertId }: AlertQueueProps) {
   const [filters, setFilters] = useUrlFilters()
   const alerts = useAlerts(filters)
   const assets = useAssets()
@@ -91,7 +97,17 @@ export function AlertQueue() {
     rowRefs.current.get(id)?.focus()
   }
 
+  // Returning from the detail screen: put selection and focus back on that row, once.
+  const restored = useRef(false)
+  useEffect(() => {
+    if (restored.current || !focusAlertId || !ids.includes(focusAlertId)) return
+    restored.current = true
+    setSelection({ id: focusAlertId, index: ids.indexOf(focusAlertId) })
+    rowRefs.current.get(focusAlertId)?.focus()
+  }, [focusAlertId, ids])
+
   const onKeyDown = useQueueKeyboard({
+    onOpen,
     ids,
     selectedId: selected?.id,
     onMove: (id) => select(id, true),
@@ -147,6 +163,7 @@ export function AlertQueue() {
               }}
               onSelect={() => select(alert.id, true)}
               onAcknowledge={() => runAcknowledge(alert.id)}
+              onOpen={() => onOpen(alert.id)}
               onDismiss={() => {
                 setNotice(null)
                 setDismissingId(alert.id)

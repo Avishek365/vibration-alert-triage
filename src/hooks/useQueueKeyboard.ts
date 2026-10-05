@@ -6,6 +6,7 @@ interface QueueKeyboardOptions {
   onMove: (id: string) => void
   onAcknowledge: (id: string) => void
   onDismiss: (id: string) => void
+  onOpen: (id: string) => void
 }
 
 const TYPING_TARGETS = 'input, select, textarea, [contenteditable="true"]'
@@ -21,6 +22,7 @@ export function useQueueKeyboard({
   onMove,
   onAcknowledge,
   onDismiss,
+  onOpen,
 }: QueueKeyboardOptions) {
   return (e: KeyboardEvent<HTMLElement>) => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
@@ -46,6 +48,12 @@ export function useQueueKeyboard({
         if (!selectedId) return
         e.preventDefault()
         onDismiss(selectedId)
+        break
+      case 'Enter':
+        // Only on the row itself: links and buttons inside it handle Enter natively.
+        if (!selectedId || !(e.target as HTMLElement).dataset.alertId) return
+        e.preventDefault()
+        onOpen(selectedId)
         break
     }
   }

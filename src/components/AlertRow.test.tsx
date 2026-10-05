@@ -23,6 +23,7 @@ function renderRow(alert: Alert) {
         onSelect={() => {}}
         onAcknowledge={() => {}}
         onDismiss={() => {}}
+        onOpen={() => {}}
       />
     </ul>,
   )

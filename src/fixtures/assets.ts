@@ -173,7 +173,7 @@ const specs: AssetSpec[] = [
     name: 'Clinker cooler fan 3',
     type: 'fan',
     rpm: 1480,
-    lastSeenHoursAgo: { 0: 12 },
+    lastSeenHoursAgo: { 0: 8 },
   },
   {
     id: 'a23',

@@ -1,0 +1,121 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { formatDayTime } from '../domain/format'
+import { describeReading } from '../domain/trend'
+import type { AlertTrend } from '../domain/types'
+import { TrendChart } from './TrendChart'
+
+const HOUR = 3_600_000
+const end = Date.parse('2026-09-30T08:00:00Z')
+const iso = (ms: number) => new Date(ms).toISOString()
+const thresholds = { warning: 4.5, critical: 7.1 }
+const values = [2, 2.2, 3.5, 5.1, 7.8]
+const trend: AlertTrend = {
+  points: values.map((value, i) => ({ at: iso(end - (values.length - 1 - i) * HOUR), value })),
+  windowStart: iso(end - 48 * HOUR),
+  windowEnd: iso(end),
+  lastReadingAt: iso(end),
+  sensorStatus: 'online',
+}
+
+function renderChart() {
+  const user = userEvent.setup()
+  const utils = render(
+    <>
+      <TrendChart
+        trend={trend}
+        thresholds={thresholds}
+        triggeredAt={iso(end - HOUR)}
+        descriptionId="desc"
+      />
+      <p id="desc">Trend description</p>
+    </>,
+  )
+  return { user, ...utils, chart: screen.getByRole('group') }
+}
+
+const readout = (i: number) =>
+  `${formatDayTime(trend.points[i].at)}: ${describeReading(trend.points[i].value, thresholds)}`
+
+it('labels the warning and critical limits, with text tokens for labels and strong tokens for lines', () => {
+  const { container } = renderChart()
+  for (const [key, label] of [
+    ['warning', 'Warning 4.50 mm/s'],
+    ['critical', 'Critical 7.10 mm/s'],
+  ]) {
+    const group = container.querySelector(`[data-threshold="${key}"]`)!
+    expect(group.querySelector('text')).toHaveTextContent(label)
+    expect(group.querySelector('text')!.getAttribute('class')).toContain(`fill-health-${key}-text`)
+    expect(group.querySelector('line')!.getAttribute('class')).toContain(
+      `stroke-health-${key}-strong`,
+    )
+  }
+  // Warning and critical lines also differ by dash pattern, not colour alone.
+  const dashes = [...container.querySelectorAll('[data-threshold] line')].map((l) =>
+    l.getAttribute('stroke-dasharray'),
+  )
+  expect(new Set(dashes).size).toBe(2)
+})
+
+it('draws the vibration line and alert marker in neutral colours', () => {
+  const { container } = renderChart()
+  expect(container.querySelector('path')!.getAttribute('class')).toBe('stroke-primary')
+  const marker = container.querySelector('[data-marker="alert"]')!
+  expect(marker).toHaveTextContent('Alert raised')
+  expect(marker.innerHTML).not.toMatch(/health-/)
+})
+
+it('is described by the text summary', () => {
+  const { chart } = renderChart()
+  expect(chart).toHaveAccessibleDescription('Trend description')
+  expect(chart).toHaveAttribute('tabindex', '0')
+})
+
+it('reads values with the arrow keys, Home and End', async () => {
+  const { user, chart } = renderChart()
+  await user.tab()
+  expect(chart).toHaveFocus()
+  // Focus starts on the latest reading.
+  expect(screen.getByText(/Hover over the chart|mm\/s,/).closest('p')).toHaveTextContent(readout(4))
+
+  await user.keyboard('{ArrowLeft}')
+  expect(screen.getByText(formatDayTime(trend.points[3].at)).closest('p')).toHaveTextContent(
+    readout(3),
+  )
+  await user.keyboard('{Home}')
+  expect(screen.getByText(formatDayTime(trend.points[0].at)).closest('p')).toHaveTextContent(
+    readout(0),
+  )
+  await user.keyboard('{ArrowLeft}')
+  expect(screen.getByText(formatDayTime(trend.points[0].at)).closest('p')).toHaveTextContent(
+    readout(0),
+  )
+  await user.keyboard('{End}')
+  expect(screen.getByText(formatDayTime(trend.points[4].at)).closest('p')).toHaveTextContent(
+    readout(4),
+  )
+})
+
+it('announces readings politely', () => {
+  renderChart()
+  expect(screen.getByText(/Hover over the chart/).closest('p')).toHaveAttribute(
+    'aria-live',
+    'polite',
+  )
+})
+
+it('fits narrow containers: fills the width, with fewer time labels', () => {
+  const spy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(320)
+  try {
+    const { container } = renderChart()
+    const svg = container.querySelector('svg')!
+    expect(svg).toHaveAttribute('width', '320')
+    // 48 hours with a label every 12 h, instead of every 6 h on wider screens.
+    const timeLabels = [...svg.querySelectorAll('text')].filter((t) =>
+      /^\d{2}:\d{2}$|^\d{1,2} [A-Z][a-z]{2}$/.test(t.textContent ?? ''),
+    )
+    expect(timeLabels.length).toBeLessThanOrEqual(5)
+  } finally {
+    spy.mockRestore()
+  }
+})

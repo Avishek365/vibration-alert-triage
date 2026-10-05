@@ -58,8 +58,7 @@ export function formatRelative(iso: string, now: Date): string {
 // Fixed month names: locale data disagrees on abbreviations ("Sep" vs "Sept").
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** Exact time with zone, e.g. "30 Sep 2026, 06:30 UTC". Uses the viewer's zone by default. */
-export function formatExact(iso: string, timeZone?: string): string {
+function dateParts(iso: string, timeZone?: string) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'numeric',
@@ -72,8 +71,30 @@ export function formatExact(iso: string, timeZone?: string): string {
   }).formatToParts(new Date(iso))
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)?.value ?? ''
-  const month = MONTHS[Number(part('month')) - 1]
-  return `${part('day')} ${month} ${part('year')}, ${part('hour')}:${part('minute')} ${part('timeZoneName')}`
+  return {
+    day: `${part('day')} ${MONTHS[Number(part('month')) - 1]}`,
+    year: part('year'),
+    clock: `${part('hour')}:${part('minute')}`,
+    zone: part('timeZoneName'),
+  }
+}
+
+/** Exact time with zone, e.g. "30 Sep 2026, 06:30 UTC". Uses the viewer's zone by default. */
+export function formatExact(iso: string, timeZone?: string): string {
+  const { day, year, clock, zone } = dateParts(iso, timeZone)
+  return `${day} ${year}, ${clock} ${zone}`
+}
+
+/** Short day and time for chart readouts, e.g. "30 Sep, 06:30". */
+export function formatDayTime(iso: string, timeZone?: string): string {
+  const { day, clock } = dateParts(iso, timeZone)
+  return `${day}, ${clock}`
+}
+
+/** Axis labels: "06:00", or the date at midnight, e.g. "30 Sep". */
+export function formatAxisTime(iso: string, timeZone?: string): string {
+  const { day, clock } = dateParts(iso, timeZone)
+  return clock === '00:00' ? day : clock
 }
 
 /** Full sensor sentence for tooltips and screen readers. */

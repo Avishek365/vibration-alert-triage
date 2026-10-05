@@ -77,11 +77,13 @@ describe('getAlert and trend', () => {
     expect(point.id).toBe(alert.pointId)
   })
 
-  it('returns a trend ending at the alert reading', async () => {
+  it('returns a trend window that includes the alert reading', async () => {
     const api = setup()
-    const { alert } = await api.getAlert('al-001')
+    const { alert, point } = await api.getAlert('al-001')
     const trend = await api.getAlertTrend('al-001')
-    expect(trend.at(-1)!.value).toBe(alert.reading)
+    expect(trend.points.find((p) => p.at === alert.triggeredAt)?.value).toBe(alert.reading)
+    expect(trend.windowEnd).toBe(now.toISOString())
+    expect(trend.sensorStatus).toBe(point.sensorStatus)
   })
 })
 

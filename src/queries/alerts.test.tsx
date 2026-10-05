@@ -38,7 +38,7 @@ describe('read hooks', () => {
     )
     await waitFor(() => expect(Object.values(result.current).every((q) => q.isSuccess)).toBe(true))
     expect(result.current.alert.data!.alert.id).toBe('al-001')
-    expect(result.current.trend.data!.length).toBeGreaterThan(0)
+    expect(result.current.trend.data!.points.length).toBeGreaterThan(0)
     expect(result.current.sites.data).toHaveLength(3)
     expect(result.current.assets.data!.every((a) => a.asset.siteId === 's1')).toBe(true)
     expect(result.current.asset.data!.asset.id).toBe('a01')
