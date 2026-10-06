@@ -43,15 +43,14 @@ it('labels the warning and critical limits, with text tokens for labels and stro
     ['warning', 'Warning 4.50 mm/s'],
     ['critical', 'Critical 7.10 mm/s'],
   ]) {
-    const group = container.querySelector(`[data-threshold="${key}"]`)!
-    expect(group.querySelector('text')).toHaveTextContent(label)
-    expect(group.querySelector('text')!.getAttribute('class')).toContain(`fill-health-${key}-text`)
-    expect(group.querySelector('line')!.getAttribute('class')).toContain(
-      `stroke-health-${key}-strong`,
-    )
+    const text = container.querySelector(`[data-threshold-label="${key}"]`)!
+    expect(text).toHaveTextContent(label)
+    expect(text.getAttribute('class')).toContain(`fill-health-${key}-text`)
+    const line = container.querySelector(`line[data-threshold="${key}"]`)!
+    expect(line.getAttribute('class')).toContain(`stroke-health-${key}-strong`)
   }
   // Warning and critical lines also differ by dash pattern, not colour alone.
-  const dashes = [...container.querySelectorAll('[data-threshold] line')].map((l) =>
+  const dashes = [...container.querySelectorAll('line[data-threshold]')].map((l) =>
     l.getAttribute('stroke-dasharray'),
   )
   expect(new Set(dashes).size).toBe(2)
@@ -150,4 +149,30 @@ it('stops the line at the last reading and labels the gap when the sensor went q
 it('shows no gap for an online sensor', () => {
   const { container } = renderChart()
   expect(container.querySelector('[data-gap]')).toBeNull()
+})
+
+it('gives limit labels a wide white halo and draws them above everything else', async () => {
+  const { container, user } = renderChart()
+  await user.tab() // shows the crosshair and active marker
+  const svg = container.querySelector('svg')!
+  const labels = [...svg.querySelectorAll('[data-threshold-label]')]
+  expect(labels).toHaveLength(2)
+  for (const label of labels) {
+    expect(label.getAttribute('class')).toContain('stroke-surface')
+    expect(label).toHaveAttribute('paint-order', 'stroke')
+    expect(Number(label.getAttribute('stroke-width'))).toBeGreaterThanOrEqual(6)
+  }
+  // The labels are the last things painted, after the line, end dot and crosshair.
+  const children = [...svg.children]
+  const firstLabel = children.indexOf(labels[0])
+  for (const el of [svg.querySelector('path'), svg.querySelector('[data-crosshair]')]) {
+    expect(children.indexOf(el as Element)).toBeLessThan(firstLabel)
+  }
+  expect(children.slice(firstLabel).every((el) => el.hasAttribute('data-threshold-label'))).toBe(
+    true,
+  )
+  // Limit lines sit beneath the data line.
+  expect(children.indexOf(svg.querySelector('line[data-threshold]')!)).toBeLessThan(
+    children.indexOf(svg.querySelector('path')!),
+  )
 })

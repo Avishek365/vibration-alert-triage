@@ -71,9 +71,28 @@ describe('CorrectionBanner', () => {
   })
 
   it('does not look like a failure', () => {
-    const { container } = render(<CorrectionBanner alert={corrected} />)
+    const { container } = render(<CorrectionBanner alert={corrected} lastReading={8.1} />)
     expect(container.textContent).not.toMatch(/\b(error|fail(ed|ure)?|wrong)\b/i)
     expect(container.innerHTML).not.toMatch(/health-/)
+  })
+
+  it.each([
+    [
+      8.1,
+      'Vibration is still above the critical limit. Dismissing this alert does not change the reading.',
+    ],
+    [
+      5.2,
+      'Vibration is still above the warning limit. Dismissing this alert does not change the reading.',
+    ],
+  ])('warns when the latest reading %s is still above a limit', (value, sentence) => {
+    render(<CorrectionBanner alert={corrected} lastReading={value} />)
+    expect(screen.getByText(sentence)).toBeInTheDocument()
+  })
+
+  it.each([[3.1], [undefined]])('adds nothing when the latest reading is %s', (value) => {
+    render(<CorrectionBanner alert={corrected} lastReading={value} />)
+    expect(screen.queryByText(/still above/)).not.toBeInTheDocument()
   })
 
   it('says "You" for the current user', () => {

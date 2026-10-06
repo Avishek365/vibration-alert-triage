@@ -5,6 +5,8 @@ import { between, createRandom, hashString, round } from './random'
 const HOUR_MS = 60 * 60 * 1000
 /** Hours before the alert over which vibration climbs from baseline. */
 const RAMP_HOURS = 17
+/** How far below the critical limit a warning alert's readings stay, in mm/s. */
+const WARNING_HEADROOM = 0.05
 
 /**
  * Hourly velocity readings across the alert's trend window, seeded by alert id.
@@ -21,13 +23,18 @@ export function buildTrend(alert: Alert, point: MeasurementPoint, now: Date): Al
   const dataEnd = Math.min(end.getTime(), lastSeen)
   const baseline = alert.thresholds.warning * between(random, 0.35, 0.55)
 
+  // A warning alert's trend must never cross the critical limit, or the chart
+  // would contradict the alert's severity. Noise can push near-limit readings over.
+  const ceiling =
+    alert.severity === 'warning' ? alert.thresholds.critical - WARNING_HEADROOM : Infinity
+
   const valueAt = (hoursFromTrigger: number) => {
     if (hoursFromTrigger === 0) return alert.reading
     const noise = 1 + between(random, -0.05, 0.05)
-    if (hoursFromTrigger > 0) return round(alert.reading * noise)
+    if (hoursFromTrigger > 0) return Math.min(round(alert.reading * noise), ceiling)
     const before = -hoursFromTrigger
     const progress = before >= RAMP_HOURS ? 0 : ((RAMP_HOURS - before) / RAMP_HOURS) ** 2
-    return round((baseline + (alert.reading - baseline) * progress) * noise)
+    return Math.min(round((baseline + (alert.reading - baseline) * progress) * noise), ceiling)
   }
 
   // Grid aligned to the alert, so the alert reading is always one of the points.

@@ -93,6 +93,10 @@ describe('content', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     const table = screen.getByRole('region', { name: 'Vibration readings' })
     expect(within(table).getAllByRole('row').length).toBeGreaterThan(10)
+    // The scroll area is keyboard-reachable straight after the toggle, so it can be scrolled with arrow keys.
+    expect(table).toHaveAttribute('tabindex', '0')
+    await user.tab()
+    expect(table).toHaveFocus()
   })
 
   it('acknowledges from the detail screen and records "You" in the history', async () => {
@@ -130,7 +134,10 @@ describe('content', () => {
     await detailHeading()
     await screen.findByRole('group', { name: /Vibration velocity/ })
     const offenders = [...container.querySelectorAll('[class*="health-"]')].filter(
-      (el) => !el.closest('[data-health]') && !el.closest('[data-threshold]'),
+      (el) =>
+        !el.closest('[data-health]') &&
+        !el.closest('[data-threshold]') &&
+        !el.closest('[data-threshold-label]'),
     )
     expect(offenders).toEqual([])
   })
@@ -157,6 +164,17 @@ describe('special states', () => {
     const confidence = screen.getByRole('region', { name: 'Model confidence' })
     expect(confidence).toHaveTextContent('Original model estimate')
     expect(confidence).toHaveTextContent("The model's best match was")
+
+    // The fault label was corrected, but the reading is still high: say so.
+    const trend = await api.getAlertTrend(alert.id)
+    const last = trend.points.at(-1)!.value
+    expect(last).toBeGreaterThanOrEqual(alert.thresholds.warning)
+    const limit = last >= alert.thresholds.critical ? 'critical' : 'warning'
+    await waitFor(() =>
+      expect(banner).toHaveTextContent(
+        `Vibration is still above the ${limit} limit. Dismissing this alert does not change the reading.`,
+      ),
+    )
   })
 
   it('shows when the sensor went quiet, with the last reading, and never as healthy', async () => {

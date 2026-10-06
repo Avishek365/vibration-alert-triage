@@ -14,6 +14,8 @@ interface TrendChartProps {
 
 const HOUR_MS = 60 * 60 * 1000
 const MARGIN = { top: 28, right: 12, bottom: 28, left: 40 }
+/** Text halo in px: wider than the 2px line and the marker ring it may sit over. */
+const HALO_WIDTH = 6
 
 /** Rounded axis maximum and evenly spaced ticks from 0. */
 function niceScale(max: number, targetTicks: number) {
@@ -245,7 +247,7 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
                 y={MARGIN.top + 16}
                 textAnchor={gapLabelInside ? 'middle' : 'end'}
                 className="fill-primary stroke-surface text-xs font-medium"
-                strokeWidth={4}
+                strokeWidth={HALO_WIDTH}
                 strokeLinejoin="round"
                 paintOrder="stroke"
               >
@@ -253,6 +255,21 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
               </text>
             </g>
           )}
+
+          {/* Limit lines sit under the data line; their labels are drawn last, on top. */}
+          {thresholdLines.map((t) => (
+            <line
+              key={t.key}
+              data-threshold={t.key}
+              x1={MARGIN.left}
+              x2={width - MARGIN.right}
+              y1={y(t.value)}
+              y2={y(t.value)}
+              className={t.line}
+              strokeWidth={1.5}
+              strokeDasharray={t.dash}
+            />
+          ))}
 
           <path
             d={path}
@@ -262,32 +279,6 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
             strokeLinejoin="round"
             strokeLinecap="round"
           />
-
-          {/* Drawn after the line so the labels sit on top, with a surface halo. */}
-          {thresholdLines.map((t) => (
-            <g key={t.key} data-threshold={t.key}>
-              <line
-                x1={MARGIN.left}
-                x2={width - MARGIN.right}
-                y1={y(t.value)}
-                y2={y(t.value)}
-                className={t.line}
-                strokeWidth={1.5}
-                strokeDasharray={t.dash}
-              />
-              <text
-                x={width - MARGIN.right - 4}
-                y={y(t.value) - 6}
-                textAnchor="end"
-                className={`${t.text} stroke-surface text-xs font-medium`}
-                strokeWidth={4}
-                strokeLinejoin="round"
-                paintOrder="stroke"
-              >
-                {t.label} {formatMmS(t.value)}
-              </text>
-            </g>
-          ))}
 
           {last && (
             <circle
@@ -318,6 +309,24 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
               />
             </g>
           )}
+
+          {/* Last layer: nothing can cover the labels, and a wide white (surface) halo
+              keeps them readable where the data line or a marker passes behind. */}
+          {thresholdLines.map((t) => (
+            <text
+              key={t.key}
+              data-threshold-label={t.key}
+              x={width - MARGIN.right - 4}
+              y={y(t.value) - 6}
+              textAnchor="end"
+              className={`${t.text} stroke-surface text-xs font-medium`}
+              strokeWidth={HALO_WIDTH}
+              strokeLinejoin="round"
+              paintOrder="stroke"
+            >
+              {t.label} {formatMmS(t.value)}
+            </text>
+          ))}
         </svg>
       </div>
 

@@ -267,3 +267,24 @@ describe('special states and explanations', () => {
     },
   )
 })
+
+describe('warning trends', () => {
+  // The trend shifts with the clock, so check several viewing times.
+  it.each([0, 5, 17, 29, 41, 60].map((h) => [h]))(
+    'stay below the critical limit when viewed %s h later',
+    (hoursLater) => {
+      const viewedAt = new Date(now.getTime() + hoursLater * 3_600_000)
+      const { assets: a, alerts: list } = buildFixtures(viewedAt)
+      const warnings = list.filter((alert) => alert.severity === 'warning')
+      expect(warnings.length).toBeGreaterThan(0)
+      for (const alert of warnings) {
+        const point = a
+          .find((s) => s.id === alert.assetId)!
+          .points.find((p) => p.id === alert.pointId)!
+        for (const reading of buildTrend(alert, point, viewedAt).points) {
+          expect(reading.value).toBeLessThan(alert.thresholds.critical)
+        }
+      }
+    },
+  )
+})

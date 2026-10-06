@@ -84,8 +84,28 @@ export function SensorQuietBanner({ point, thresholds, lastReading, now }: Senso
   )
 }
 
-/** A dismissal with reason "model was wrong", shown as a correction. */
-export function CorrectionBanner({ alert }: { alert: DismissedAlert }) {
+const STILL_ABOVE = {
+  above_critical: 'critical',
+  above_warning: 'warning',
+} as const
+
+/**
+ * A dismissal with reason "model was wrong", shown as a correction. The fault
+ * label may have been wrong, but a high reading is still a high reading, so
+ * say so when the latest one is above a limit.
+ */
+export function CorrectionBanner({
+  alert,
+  lastReading,
+}: {
+  alert: DismissedAlert
+  /** Latest reading, when the trend has loaded. */
+  lastReading?: number
+}) {
+  const position =
+    lastReading === undefined ? null : thresholdPosition(lastReading, alert.thresholds)
+  const stillAbove = position && position !== 'below_warning' ? STILL_ABOVE[position] : null
+
   return (
     <Banner
       title="Corrected by technician"
@@ -108,6 +128,12 @@ export function CorrectionBanner({ alert }: { alert: DismissedAlert }) {
       </p>
       {alert.dismissNote && <p className="text-primary">“{alert.dismissNote}”</p>}
       <p className="text-secondary">Recorded as feedback on this alert.</p>
+      {stillAbove && (
+        <p className="font-medium text-primary">
+          Vibration is still above the {stillAbove} limit. Dismissing this alert does not change the
+          reading.
+        </p>
+      )}
     </Banner>
   )
 }

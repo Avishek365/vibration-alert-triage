@@ -168,7 +168,7 @@ export function AlertDetail({ id, backHref, onBack }: AlertDetailProps) {
       </header>
 
       {alert.status === 'dismissed' && alert.dismissReason === 'model_wrong' && (
-        <CorrectionBanner alert={alert} />
+        <CorrectionBanner alert={alert} lastReading={trend.data?.points.at(-1)?.value} />
       )}
       {point.sensorStatus !== 'online' && (
         <SensorQuietBanner
