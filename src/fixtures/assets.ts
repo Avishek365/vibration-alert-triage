@@ -1,6 +1,6 @@
 import { sensorStatusFor } from '../domain/health'
 import type { Asset, AssetType, Thresholds } from '../domain/types'
-import { between, round } from './random'
+import { between, hashString, round } from './random'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -193,6 +193,15 @@ const specs: AssetSpec[] = [
   },
 ]
 
+/**
+ * A normal, below-warning reading for points without alerts. Derived from the
+ * point id rather than the shared random stream, so other values do not shift.
+ */
+function baselineReading(pointId: string, thresholds: Thresholds): number {
+  const fraction = (hashString(pointId) % 1000) / 1000
+  return round(thresholds.warning * (0.25 + fraction * 0.35))
+}
+
 export function buildAssets(now: Date, random: () => number): Asset[] {
   return specs.map((spec) => ({
     id: spec.id,
@@ -209,6 +218,7 @@ export function buildAssets(now: Date, random: () => number): Asset[] {
         name,
         sensorStatus: sensorStatusFor(lastSeen.toISOString(), now),
         lastSeenAt: lastSeen.toISOString(),
+        latestReading: baselineReading(`${spec.id}-p${index + 1}`, THRESHOLDS[spec.type]),
         thresholds: { ...THRESHOLDS[spec.type] },
       }
     }),

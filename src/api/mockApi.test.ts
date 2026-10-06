@@ -103,18 +103,32 @@ describe('acknowledgeAlert', () => {
 })
 
 describe('dismissAlert', () => {
-  it('dismisses with a fixed reason and updates asset health', async () => {
+  it('dismissing does not lower health while the reading is still elevated', async () => {
     const api = setup()
-    // a13 has a single open warning alert.
-    const [alert] = (await api.getAsset('a13')).alerts
+    // a13 has a single open warning alert, and its latest reading is above warning.
+    const before = await api.getAsset('a13')
+    const [alert] = before.alerts
+    const point = before.asset.points.find((p) => p.id === alert.pointId)!
+    expect(point.latestReading).toBeGreaterThanOrEqual(point.thresholds.warning)
+
     await api.dismissAlert(alert.id, { reason: 'maintenance_in_progress' })
     const asset = await api.getAsset('a13')
     expect(asset.alerts[0]).toMatchObject({
       status: 'dismissed',
       dismissReason: 'maintenance_in_progress',
     })
-    expect(asset.health).toBe('healthy')
     expect(asset.openAlertCount).toBe(0)
+    expect(asset.health).toBe('warning')
+    expect(asset.note).toBe('in_maintenance')
+  })
+
+  it('dismissing as a sensor fault makes the machine unknown', async () => {
+    const api = setup()
+    const [alert] = (await api.getAsset('a13')).alerts
+    await api.dismissAlert(alert.id, { reason: 'sensor_fault' })
+    const asset = await api.getAsset('a13')
+    expect(asset.health).toBe('unknown')
+    expect(asset.note).toBe('sensor_fault')
   })
 
   it('requires a note when the reason is "other"', async () => {

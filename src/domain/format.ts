@@ -1,6 +1,13 @@
 // Display text for domain values. Locale is fixed to en-GB so output is stable.
 
-import type { AlertStatus, DismissReason, Evidence, FaultType, SensorStatus } from './types'
+import type {
+  AlertStatus,
+  DismissReason,
+  Evidence,
+  FaultType,
+  HealthNote,
+  SensorStatus,
+} from './types'
 
 export const FAULT_LABELS: Record<FaultType, string> = {
   imbalance: 'Imbalance',
@@ -23,6 +30,13 @@ export const STATUS_LABELS: Record<AlertStatus, string> = {
   new: 'New',
   acknowledged: 'Acknowledged',
   dismissed: 'Dismissed',
+}
+
+export const HEALTH_NOTE_LABELS: Record<HealthNote, string> = {
+  known_condition: 'Known condition',
+  in_maintenance: 'In maintenance',
+  dismissed_elevated: 'Dismissed, still elevated',
+  sensor_fault: 'Sensor fault reported',
 }
 
 export const SENSOR_STATUS_LABELS: Record<SensorStatus, string> = {

@@ -10,6 +10,7 @@ const point: MeasurementPoint = {
   name: 'Motor DE bearing',
   sensorStatus: 'offline',
   lastSeenAt: '2026-09-29T02:00:00.000Z',
+  latestReading: 2,
   thresholds,
 }
 const alert: Alert = {

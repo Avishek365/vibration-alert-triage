@@ -10,7 +10,7 @@ import {
   matchesAlertFilters,
   validateDismissInput,
 } from '../domain/alerts'
-import { assetHealth, healthRank, isOpen } from '../domain/health'
+import { assetStatus, healthRank, isOpen } from '../domain/health'
 import type {
   Alert,
   AlertDetail,
@@ -91,7 +91,7 @@ export function createMockApi(options: MockApiOptions = {}) {
     const alerts = db.alerts.filter((a) => a.assetId === asset.id)
     return {
       asset,
-      health: assetHealth(asset, alerts),
+      ...assetStatus(asset, alerts),
       openAlertCount: alerts.filter(isOpen).length,
     }
   }

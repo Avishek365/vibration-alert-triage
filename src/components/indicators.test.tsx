@@ -36,9 +36,10 @@ describe('HealthIndicator', () => {
     expect(indicator.querySelector('.rounded-full.bg-health-healthy-strong')).not.toBeNull()
   })
 
-  it('shows a count when given', () => {
-    render(<HealthIndicator state="critical" count={4} />)
+  it('shows a count when given, separated from the label for screen readers', () => {
+    const { container } = render(<HealthIndicator state="critical" count={4} />)
     expect(screen.getByText('4')).toBeInTheDocument()
+    expect(container.textContent).toBe('●Critical 4')
   })
 })
 
@@ -68,6 +69,7 @@ describe('SensorStatusIndicator', () => {
     name: 'Motor DE bearing',
     sensorStatus: 'online',
     lastSeenAt: now.toISOString(),
+    latestReading: 2,
     thresholds: { warning: 4.5, critical: 7.1 },
     ...overrides,
   })

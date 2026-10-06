@@ -33,7 +33,15 @@ interface HealthIndicatorProps {
 }
 
 export function HealthIndicator({ state, count }: HealthIndicatorProps) {
-  const suffix = count === undefined ? null : <span className="tabular-nums">{count}</span>
+  // The space keeps label and count apart for screen readers ("Warning 3", not
+  // "Warning3"); flex layout ignores it visually, the gap does the spacing.
+  const suffix =
+    count === undefined ? null : (
+      <>
+        {' '}
+        <span className="tabular-nums">{count}</span>
+      </>
+    )
 
   if (state === 'healthy') {
     return (

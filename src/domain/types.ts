@@ -57,6 +57,8 @@ export interface MeasurementPoint {
   sensorStatus: SensorStatus
   /** ISO timestamp of the last reading received. */
   lastSeenAt: string
+  /** Velocity RMS in mm/s of that last reading. */
+  latestReading: number
   thresholds: Thresholds
 }
 
@@ -152,10 +154,18 @@ export interface AssetFilters {
   siteId?: string
 }
 
+/**
+ * Why a machine's health is what it is when a dismissed alert is involved.
+ * Shown as a small neutral label next to the machine.
+ */
+export type HealthNote =
+  'known_condition' | 'in_maintenance' | 'dismissed_elevated' | 'sensor_fault'
+
 /** Asset with its derived health, as returned by list endpoints. */
 export interface AssetSummary {
   asset: Asset
   health: HealthState
+  note?: HealthNote
   openAlertCount: number
 }
 

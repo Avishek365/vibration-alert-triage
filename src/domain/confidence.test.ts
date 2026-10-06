@@ -27,6 +27,7 @@ describe('explainConfidence', () => {
     name: 'Motor DE bearing',
     sensorStatus: 'online',
     lastSeenAt: now.toISOString(),
+    latestReading: 2,
     thresholds: { warning: 4.5, critical: 7.1 },
   }
   const band = (bandLabel: string, observed: number, baseline = 1) => ({

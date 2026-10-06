@@ -1,41 +1,166 @@
-import { useAssets } from '../queries/assets'
-import type { HealthState } from '../domain/types'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { HEALTH_NOTE_LABELS, formatMmS } from '../domain/format'
+import type { AssetSummary, HealthState, MeasurementPoint } from '../domain/types'
+import { useAssets, useSites } from '../queries/assets'
 import { HealthIndicator } from './HealthIndicator'
 
 const ORDER: HealthState[] = ['critical', 'warning', 'unknown', 'healthy']
 
-/** Machine health counts for the current site filter. */
+const STATE_LABELS: Record<HealthState, string> = {
+  critical: 'Critical',
+  warning: 'Warning',
+  unknown: 'Unknown',
+  healthy: 'Healthy',
+}
+
+/** The point whose latest reading is highest relative to its warning limit. */
+function worstPoint(points: readonly MeasurementPoint[]): MeasurementPoint {
+  return points.reduce((worst, p) =>
+    p.latestReading / p.thresholds.warning > worst.latestReading / worst.thresholds.warning
+      ? p
+      : worst,
+  )
+}
+
+/** Small neutral label explaining a health state that involves a dismissed alert. */
+export function HealthNoteLabel({ note }: { note: NonNullable<AssetSummary['note']> }) {
+  return (
+    <span
+      data-note={note}
+      className="inline-block rounded-sm border border-strong px-1.5 text-xs whitespace-nowrap text-secondary"
+    >
+      {HEALTH_NOTE_LABELS[note]}
+    </span>
+  )
+}
+
+/**
+ * Machine health counts for the current site filter. Each count is a button
+ * that opens the list of machines in that state.
+ */
 export function HealthSummary({ siteId }: { siteId?: string }) {
   const assets = useAssets(siteId ? { siteId } : {})
+  const sites = useSites()
+  const [open, setOpen] = useState<HealthState | null>(null)
+  const panelId = useId()
+  const buttons = useRef(new Map<HealthState, HTMLButtonElement>())
+
+  const siteName = (id: string) => sites.data?.find((s) => s.id === id)?.name ?? ''
+  const inState = (state: HealthState) => (assets.data ?? []).filter((a) => a.health === state)
+
+  function close() {
+    const state = open
+    setOpen(null)
+    if (state) buttons.current.get(state)?.focus()
+  }
+
+  function onPanelKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      // Stop here so the page-level Esc (back to queue) does not also fire.
+      e.preventDefault()
+      e.stopPropagation()
+      close()
+    }
+  }
 
   return (
-    <section aria-label="Machine health" className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <h2 className="text-sm font-medium text-tertiary">Machines</h2>
-      {assets.isPending && <span className="text-sm text-tertiary">Loading…</span>}
-      {assets.isError && (
-        <span className="text-sm text-secondary">
-          Machine health unavailable.{' '}
-          <button
-            type="button"
-            className="font-medium text-accent underline"
-            onClick={() => assets.refetch()}
+    <section aria-label="Machine health">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h2 className="text-sm font-medium text-tertiary">Machines</h2>
+        {assets.isPending && <span className="text-sm text-tertiary">Loading…</span>}
+        {assets.isError && (
+          <span className="text-sm text-secondary">
+            Machine health unavailable.{' '}
+            <button
+              type="button"
+              className="font-medium text-accent underline"
+              onClick={() => assets.refetch()}
+            >
+              Retry
+            </button>
+          </span>
+        )}
+        {assets.isSuccess && (
+          <ul className="flex flex-wrap items-center gap-2">
+            {ORDER.map((state) => (
+              <li key={state}>
+                <button
+                  ref={(el) => {
+                    if (el) buttons.current.set(state, el)
+                    else buttons.current.delete(state)
+                  }}
+                  type="button"
+                  aria-expanded={open === state}
+                  aria-controls={panelId}
+                  onClick={() => setOpen((current) => (current === state ? null : state))}
+                  className={`rounded-md border p-1 hover:bg-subtle ${
+                    open === state ? 'border-accent bg-accent-subtle' : 'border-transparent'
+                  }`}
+                >
+                  <HealthIndicator state={state} count={inState(state).length} />{' '}
+                  <span className="sr-only">machines</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div id={panelId} hidden={!open}>
+        {open && assets.isSuccess && (
+          <div
+            role="region"
+            aria-label={`${STATE_LABELS[open]} machines`}
+            onKeyDown={onPanelKeyDown}
+            className="mt-3 rounded-lg border border-hairline bg-surface"
           >
-            Retry
-          </button>
-        </span>
-      )}
-      {assets.isSuccess && (
-        <ul className="flex flex-wrap items-center gap-3">
-          {ORDER.map((state) => (
-            <li key={state}>
-              <HealthIndicator
-                state={state}
-                count={assets.data.filter((a) => a.health === state).length}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+            <div className="flex items-center justify-between border-b border-hairline px-4 py-2">
+              <h3 className="text-sm font-semibold text-heading">
+                {STATE_LABELS[open]} machines{' '}
+                <span className="font-normal text-secondary tabular-nums">
+                  ({inState(open).length})
+                </span>
+              </h3>
+              <button
+                type="button"
+                onClick={close}
+                className="text-sm font-medium text-accent underline underline-offset-2"
+              >
+                Close
+              </button>
+            </div>
+            {inState(open).length === 0 ? (
+              <p className="px-4 py-3 text-sm text-secondary">No machines in this state.</p>
+            ) : (
+              <ul aria-label={`${STATE_LABELS[open]} machines`}>
+                {inState(open).map(({ asset, note, openAlertCount }) => {
+                  const point = worstPoint(asset.points)
+                  return (
+                    <li
+                      key={asset.id}
+                      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-hairline px-4 py-2 text-sm last:border-b-0"
+                    >
+                      <span className="font-medium text-heading">
+                        {asset.name} <span className="font-normal text-tertiary">{asset.tag}</span>
+                      </span>
+                      <span className="text-secondary">{siteName(asset.siteId)}</span>
+                      <span className="text-secondary tabular-nums">
+                        Latest {formatMmS(point.latestReading)} · {point.name}
+                      </span>
+                      <span className="text-secondary">
+                        {openAlertCount === 0
+                          ? 'No open alerts'
+                          : `${openAlertCount} open ${openAlertCount === 1 ? 'alert' : 'alerts'}`}
+                      </span>
+                      {note && <HealthNoteLabel note={note} />}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   )
 }

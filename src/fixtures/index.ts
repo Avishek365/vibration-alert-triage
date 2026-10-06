@@ -3,6 +3,7 @@ import { buildAlerts } from './alerts'
 import { buildAssets } from './assets'
 import { createRandom } from './random'
 import { sites } from './sites'
+import { buildTrend } from './trends'
 
 export { buildTrend } from './trends'
 
@@ -21,9 +22,19 @@ const SEED = 20260930
 export function buildFixtures(now: Date): Fixtures {
   const random = createRandom(SEED)
   const assets = buildAssets(now, random)
-  return {
-    sites: structuredClone(sites),
-    assets,
-    alerts: buildAlerts(now, assets, random),
+  const alerts = buildAlerts(now, assets, random)
+
+  // A point with alerts reports the last value of its most recent alert's trend,
+  // so the chart and the machine's latest reading always agree.
+  for (const asset of assets) {
+    for (const point of asset.points) {
+      const latest = alerts
+        .filter((a) => a.pointId === point.id)
+        .sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
+      const last = latest && buildTrend(latest, point, now).points.at(-1)
+      if (last) point.latestReading = last.value
+    }
   }
+
+  return { sites: structuredClone(sites), assets, alerts }
 }

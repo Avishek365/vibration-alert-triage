@@ -1,5 +1,5 @@
 import { CONFIDENCE_BANDS, confidenceBand } from '../domain/confidence'
-import { assetHealth, sensorStatusFor, severityForReading } from '../domain/health'
+import { assetHealth, assetStatus, sensorStatusFor, severityForReading } from '../domain/health'
 import { describeEvidence, formatHz } from '../domain/format'
 import { DISMISS_REASONS, FAULT_TYPES } from '../domain/types'
 import { EVIDENCE_BANDS } from './alerts'
@@ -287,4 +287,57 @@ describe('warning trends', () => {
       }
     },
   )
+})
+
+describe('latest readings and health', () => {
+  const summaries = assets.map((a) => ({ asset: a, ...assetStatus(a, alerts) }))
+
+  it('match the last trend value on points with alerts, and stay normal elsewhere', () => {
+    for (const asset of assets) {
+      for (const point of asset.points) {
+        const latest = alerts
+          .filter((a) => a.pointId === point.id)
+          .sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
+        if (latest) {
+          expect(point.latestReading).toBe(buildTrend(latest, point, now).points.at(-1)!.value)
+        } else {
+          expect(point.latestReading).toBeLessThan(point.thresholds.warning)
+        }
+      }
+    }
+  })
+
+  it('never shows a machine as healthier than its readings', () => {
+    for (const { asset, health } of summaries) {
+      for (const point of asset.points) {
+        const fromReading = severityForReading(point.latestReading, point.thresholds)
+        const faulty = alerts.some(
+          (a) =>
+            a.pointId === point.id &&
+            a.status === 'dismissed' &&
+            a.dismissReason === 'sensor_fault',
+        )
+        if (fromReading && !faulty) {
+          expect(['critical', 'warning'].indexOf(health)).toBeLessThanOrEqual(
+            ['critical', 'warning'].indexOf(fromReading),
+          )
+          expect(health).not.toMatch(/healthy|unknown/)
+        }
+      }
+    }
+  })
+
+  it('labels machines kept elevated after a dismissal', () => {
+    const noted = summaries.filter((s) => s.note)
+    expect(noted.map((s) => s.asset.name)).toEqual(
+      expect.arrayContaining(['Raw water intake pump 2', 'White water pump']),
+    )
+    expect(summaries.find((s) => s.asset.name === 'White water pump')).toMatchObject({
+      health: 'warning',
+      note: 'in_maintenance',
+    })
+    expect(summaries.find((s) => s.asset.name === 'Raw water intake pump 2')).toMatchObject({
+      note: 'dismissed_elevated',
+    })
+  })
 })

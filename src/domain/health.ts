@@ -1,4 +1,13 @@
-import type { Alert, Asset, HealthState, SensorStatus, Severity, Thresholds } from './types'
+import type {
+  Alert,
+  Asset,
+  DismissReason,
+  HealthNote,
+  HealthState,
+  SensorStatus,
+  Severity,
+  Thresholds,
+} from './types'
 
 const HOUR_MS = 60 * 60 * 1000
 
@@ -41,21 +50,59 @@ export function isOpen(alert: Alert): boolean {
   return alert.status !== 'dismissed'
 }
 
+const NOTE_FOR_REASON: Record<Exclude<DismissReason, 'sensor_fault'>, HealthNote> = {
+  known_condition: 'known_condition',
+  maintenance_in_progress: 'in_maintenance',
+  model_wrong: 'dismissed_elevated',
+  other: 'dismissed_elevated',
+}
+
 /**
- * Health of an asset:
- * - the worst severity among its open alerts, otherwise
- * - unknown if any measurement point is offline (we cannot confirm it is fine), otherwise
- * - healthy.
+ * Health of an asset, and a note when a dismissed alert explains it.
+ *
+ * Health is the worst of, across measurement points:
+ * - the severity of any open alert;
+ * - what the latest reading implies against the thresholds, whatever the
+ *   alert status (dismissing an alert does not change the reading);
+ * - unknown, when the point's latest alert was dismissed as a sensor fault
+ *   (its reading is not trusted, so it is not counted) or the sensor is offline.
+ *
+ * Order: critical > warning > unknown > healthy.
  */
-export function assetHealth(asset: Asset, alerts: readonly Alert[]): HealthState {
-  let worst: Severity | null = null
-  for (const alert of alerts) {
-    if (alert.assetId !== asset.id || !isOpen(alert)) continue
-    if (worst === null || severityRank(alert.severity) > severityRank(worst)) {
-      worst = alert.severity
+export function assetStatus(
+  asset: Asset,
+  alerts: readonly Alert[],
+): { health: HealthState; note?: HealthNote } {
+  let health: HealthState = 'healthy'
+  let note: HealthNote | undefined
+  const raise = (state: HealthState) => {
+    if (healthRank(state) > healthRank(health)) health = state
+  }
+
+  for (const point of asset.points) {
+    const pointAlerts = alerts.filter((a) => a.assetId === asset.id && a.pointId === point.id)
+    for (const alert of pointAlerts) if (isOpen(alert)) raise(alert.severity)
+
+    const latest = [...pointAlerts].sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
+    const dismissed = latest?.status === 'dismissed' ? latest : undefined
+
+    if (dismissed?.dismissReason === 'sensor_fault') {
+      raise('unknown')
+      note ??= 'sensor_fault'
+      continue
+    }
+    if (point.sensorStatus === 'offline') raise('unknown')
+
+    const fromReading = severityForReading(point.latestReading, point.thresholds)
+    if (fromReading) {
+      raise(fromReading)
+      if (dismissed) note ??= NOTE_FOR_REASON[dismissed.dismissReason]
     }
   }
-  if (worst) return worst
-  if (asset.points.some((p) => p.sensorStatus === 'offline')) return 'unknown'
-  return 'healthy'
+
+  return note ? { health, note } : { health }
+}
+
+export function assetHealth(asset: Asset, alerts: readonly Alert[]): HealthState {
+  return assetStatus(asset, alerts).health
 }
