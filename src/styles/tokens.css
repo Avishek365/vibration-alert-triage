@@ -27,7 +27,7 @@
   --gray-100: #e3e5e8;
   --gray-200: #c9cdd2;
   --gray-400: #8a9099;
-  --gray-500: #6b717a;
+  --gray-500: #666c75;
   --gray-600: #5b616b;
   --gray-800: #2e3238;
   --gray-900: #1b1e22;
@@ -72,7 +72,8 @@
   --ui-text-primary: var(--gray-800);
   --ui-text-heading: var(--gray-900);
   --ui-text-secondary: var(--gray-600);
-  /* Tertiary: 4.9:1 on surface, 4.6:1 on app bg. Use secondary on bg-subtle. */
+  /* Tertiary: at least 4.5:1 on every surface it can sit on: 5.3 surface, 5.0 app,
+     4.7 subtle, 4.7 accent-subtle. Checked by npm run audit:a11y. */
   --ui-text-tertiary: var(--gray-500);
   --ui-text-inverse: var(--gray-0);
   --ui-text-disabled: var(--gray-400);

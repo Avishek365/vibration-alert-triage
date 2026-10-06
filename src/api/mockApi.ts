@@ -180,3 +180,10 @@ export type MockApi = ReturnType<typeof createMockApi>
 
 /** Shared instance used by the query hooks. */
 export const api = createMockApi()
+
+// Dev only: lets the accessibility audit open the app in its error state.
+// Stripped from production builds.
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  const fail = (window as { __A11Y_FAIL__?: Operation }).__A11Y_FAIL__
+  if (fail) api.setFailures([fail])
+}

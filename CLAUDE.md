@@ -31,3 +31,4 @@ Machine-health triage tool. React 19 + TypeScript + Vite, Tailwind v4, Vitest, O
 - `npm run build`: type-check (`tsc -b`) and production build
 - `npm run lint`: Oxlint
 - `npm run test:run`: Vitest, single run
+- `npm run audit:a11y`: axe in headless Chrome on the queue and detail screens (start `npm run dev` first)
