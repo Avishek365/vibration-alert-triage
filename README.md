@@ -59,7 +59,21 @@ Passes an automated axe audit with zero violations, plus automated keyboard test
 
 ## Screenshots
 
-TODO
+**Alert queue**
+
+![Alert queue. A machine health summary reads Critical 9, Warning 10, Unknown 2, Healthy 3, above filters for site, severity, status and confidence. Alerts are sorted by severity; each row shows the machine, site and measurement point, fault type, a one-line evidence summary, a grey confidence meter such as High 0.97, the reading against its limit, the age, and Acknowledge and Dismiss buttons. The selected Kiln ID fan row is expanded to show the trigger time, sensor status and two evidence bands with their frequency ranges and rise over baseline.](docs/screenshots/queue.png)
+
+**Machine list**
+
+![The Warning machines list, opened from the health summary. Ten machines are listed, each with its site, latest reading against its own critical limit, measurement point and number of open alerts. Clinker cooler fan 3 shows a stale-sensor indicator and its last reading time; Raw water intake pump 2 is labelled "Dismissed, still elevated" and White water pump "In maintenance".](docs/screenshots/machine-list.png)
+
+**Sensor went quiet**
+
+![Alert detail for Raw mill motor, a critical bearing-wear alert. A grey banner says the sensor stopped reporting 30 hours ago, readings after 6 Oct, 09:01 are missing, not normal, the machine's current condition is unknown, and the last reading, 8.77 mm/s, was above the critical limit. On the 48-hour chart the line rises past both limits and stops at that last reading; the rest of the window is hatched and labelled "No data since 6 Oct, 09:01". Warning and critical limits are labelled in the right margin.](docs/screenshots/quiet-sensor.png)
+
+**Model was wrong**
+
+![Alert detail for Raw water intake pump 2, a warning alert that was dismissed. A neutral "Corrected by technician" banner says the model suggested imbalance with confidence 0.41, a technician marked it as incorrect, it is recorded as feedback, and vibration is still above the warning limit. The 48-hour chart below shows the reading climbing past the warning limit and holding just under critical.](docs/screenshots/model-was-wrong.png)
 
 ## About the data
 
