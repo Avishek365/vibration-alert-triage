@@ -1,5 +1,7 @@
 # Vibration Alert Triage
 
+**Live demo:** [vibration-alert-triage.vercel.app](https://vibration-alert-triage.vercel.app)
+
 ## What this is
 
 A personal portfolio project on designing for model uncertainty in vibration alert triage. It explores how a technician can judge a machine-health alert quickly when the model behind it is not always sure, or not always right. All data is entirely fictional.
