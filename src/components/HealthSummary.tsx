@@ -86,7 +86,16 @@ function MachineItem({
       {note && <HealthNoteLabel note={note} />}
     </>
   )
-  const row = 'flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2 text-sm'
+  // Two columns: the text wraps inside its own column, and the chevron sits in a
+  // fixed column on the right, vertically centred, so a long label can never push
+  // it onto another line. Items are centred on each line (not baseline-aligned)
+  // so a smaller label cannot change the line height.
+  const row = 'flex items-center gap-3 px-4 py-2 text-sm'
+  const text = (
+    <div data-row-text className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+      {content}
+    </div>
+  )
 
   return (
     <li className="border-b border-hairline last:border-b-0">
@@ -102,8 +111,8 @@ function MachineItem({
           }}
           className={`${row} hover:bg-subtle focus-visible:outline-offset-[-2px]`}
         >
-          {content}
-          <span aria-hidden="true" className="ml-auto text-tertiary">
+          {text}
+          <span aria-hidden="true" data-chevron className="w-2 shrink-0 text-center text-tertiary">
             ›
           </span>
           <span className="sr-only">
@@ -111,7 +120,11 @@ function MachineItem({
           </span>
         </a>
       ) : (
-        <div className={row}>{content}</div>
+        // Same columns without a link, so text lines up with the linked rows.
+        <div className={row}>
+          {text}
+          <span aria-hidden="true" className="w-2 shrink-0" />
+        </div>
       )}
     </li>
   )

@@ -216,3 +216,39 @@ describe('machine list rows', () => {
     expect(panel).not.toHaveTextContent('latest reading below limit')
   })
 })
+
+describe('machine list row layout', () => {
+  it('keeps the chevron in its own fixed, centred column, outside the wrapping text', async () => {
+    const { user } = renderSummary()
+    await user.click(await countButton('Warning'))
+    const panel = screen.getByRole('region', { name: 'Warning machines' })
+    // The longest row, with a label, is the one that used to push the chevron down.
+    const row = within(panel).getByText('Raw water intake pump 2').closest('li')!
+    const link = row.querySelector('a')!
+    const text = link.querySelector('[data-row-text]')!
+    const chevron = link.querySelector('[data-chevron]')!
+
+    expect(link.className).toMatch(/\bflex\b/)
+    expect(link.className).toMatch(/\bitems-center\b/)
+    expect(link.className).not.toMatch(/flex-wrap/)
+    // Text wraps inside its own column; the label lives there, not beside the chevron.
+    expect(text.className).toMatch(/\bflex-1\b/)
+    expect(text.className).toMatch(/\bmin-w-0\b/)
+    expect(text.className).toMatch(/\bflex-wrap\b/)
+    expect(text.querySelector('[data-note]')).toHaveTextContent('Dismissed, still elevated')
+    // The chevron is a direct child of the row, after the text, and never shrinks.
+    expect(chevron.parentElement).toBe(link)
+    expect(text.contains(chevron)).toBe(false)
+    expect(chevron.className).toMatch(/\bshrink-0\b/)
+  })
+
+  it('gives rows without a link the same columns, so their text lines up', async () => {
+    const { user } = renderSummary()
+    await user.click(await countButton('Healthy'))
+    const panel = screen.getByRole('region', { name: 'Healthy machines' })
+    const plain = [...panel.querySelectorAll('li')].find((li) => !li.querySelector('a'))!
+    expect(plain.firstElementChild!.className).toMatch(/\bitems-center\b/)
+    expect(plain.querySelector('[data-row-text]')).not.toBeNull()
+    expect(plain.firstElementChild!.lastElementChild!.className).toMatch(/\bw-2\b.*\bshrink-0\b/)
+  })
+})
