@@ -199,3 +199,84 @@ describe('assetStatus: health never lower than the latest reading', () => {
     })
   })
 })
+
+describe('assetStatus: a dismissal label only when the dismissed point sets the health', () => {
+  const p1 = (o: Partial<MeasurementPoint> = {}) => point({ id: 'p1', ...o })
+  const p2 = (o: Partial<MeasurementPoint> = {}) =>
+    point({ id: 'p2', name: 'Motor NDE bearing', ...o })
+  const dismissedOn = (pointId: string, reason: Parameters<typeof dismiss>[1]['reason']) =>
+    dismiss(alert({ id: `d-${pointId}`, pointId }), { reason, note: 'x' }, now)
+  const openOn = (pointId: string, severity: 'warning' | 'critical') =>
+    alert({ id: `o-${pointId}`, pointId, severity, triggeredAt: hoursAgo(0.5) })
+
+  it('dismissed-and-elevated on one point, open critical on another: Critical, no label', () => {
+    const machine = asset([p1({ latestReading: 5.2 }), p2({ latestReading: 8 })])
+    expect(
+      assetStatus(machine, [dismissedOn('p1', 'model_wrong'), openOn('p2', 'critical')]),
+    ).toEqual({
+      health: 'critical',
+    })
+  })
+
+  it('no label when an open alert elsewhere reaches the same level as the dismissed reading', () => {
+    const machine = asset([p1({ latestReading: 7.5 }), p2({ latestReading: 8 })])
+    expect(
+      assetStatus(machine, [dismissedOn('p1', 'known_condition'), openOn('p2', 'critical')]),
+    ).toEqual({
+      health: 'critical',
+    })
+  })
+
+  it('no label when a newer open alert on the same point sets the level', () => {
+    const older = dismiss(
+      alert({ id: 'old', triggeredAt: hoursAgo(10) }),
+      { reason: 'model_wrong' },
+      now,
+    )
+    const newer = alert({ id: 'new', triggeredAt: hoursAgo(1) })
+    expect(assetStatus(asset([p1({ latestReading: 5 })]), [older, newer])).toEqual({
+      health: 'warning',
+    })
+  })
+
+  it('label when the dismissed point alone sets the level, even with a lower open alert elsewhere', () => {
+    const machine = asset([p1({ latestReading: 7.4 }), p2({ latestReading: 5 })])
+    expect(
+      assetStatus(machine, [dismissedOn('p1', 'maintenance_in_progress'), openOn('p2', 'warning')]),
+    ).toEqual({
+      health: 'critical',
+      note: 'in_maintenance',
+    })
+  })
+
+  it('"Sensor fault reported" only as the single reason for Unknown', () => {
+    // Alone: the one reason.
+    expect(assetStatus(asset([p1()]), [dismissedOn('p1', 'sensor_fault')])).toEqual({
+      health: 'unknown',
+      note: 'sensor_fault',
+    })
+    // Another point is open warning: Warning, no label.
+    expect(
+      assetStatus(asset([p1(), p2({ latestReading: 5 })]), [
+        dismissedOn('p1', 'sensor_fault'),
+        openOn('p2', 'warning'),
+      ]),
+    ).toEqual({ health: 'warning' })
+    // Another point is offline, so Unknown has a second cause: no label.
+    expect(
+      assetStatus(asset([p1(), p2({ sensorStatus: 'offline' })]), [
+        dismissedOn('p1', 'sensor_fault'),
+      ]),
+    ).toEqual({ health: 'unknown' })
+  })
+
+  it('never stacks labels: two dismissed points setting the level give one label', () => {
+    const machine = asset([p1({ latestReading: 5 }), p2({ latestReading: 5.5 })])
+    const result = assetStatus(machine, [
+      dismissedOn('p1', 'known_condition'),
+      dismissedOn('p2', 'model_wrong'),
+    ])
+    expect(result.health).toBe('warning')
+    expect(typeof result.note).toBe('string')
+  })
+})

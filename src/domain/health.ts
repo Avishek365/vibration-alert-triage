@@ -2,6 +2,7 @@ import type {
   Alert,
   Asset,
   DismissReason,
+  MeasurementPoint,
   HealthNote,
   HealthState,
   SensorStatus,
@@ -57,8 +58,51 @@ const NOTE_FOR_REASON: Record<Exclude<DismissReason, 'sensor_fault'>, HealthNote
   other: 'dismissed_elevated',
 }
 
+const worse = (a: HealthState, b: HealthState) => (healthRank(b) > healthRank(a) ? b : a)
+
+/** What one measurement point contributes, and whether a dismissal is what sets it. */
+interface PointStatus {
+  level: HealthState
+  /** Set only when a dismissed alert, and nothing else on this point, sets `level`. */
+  note?: HealthNote
+}
+
+function pointStatus(point: MeasurementPoint, pointAlerts: readonly Alert[]): PointStatus {
+  const fromOpen = pointAlerts
+    .filter(isOpen)
+    .reduce<HealthState>((level, alert) => worse(level, alert.severity), 'healthy')
+
+  const latest = [...pointAlerts].sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
+  const dismissed = latest?.status === 'dismissed' ? latest : undefined
+
+  // A sensor fault means the reading is not trusted: it is not counted, and the
+  // point is at least Unknown. The fault is the reason only if nothing worse is open.
+  if (dismissed?.dismissReason === 'sensor_fault') {
+    const level = worse(fromOpen, 'unknown')
+    return level === 'unknown' && fromOpen !== 'unknown'
+      ? { level, note: 'sensor_fault' }
+      : { level }
+  }
+
+  const fromReading: HealthState =
+    severityForReading(point.latestReading, point.thresholds) ?? 'healthy'
+  const fromSensor: HealthState = point.sensorStatus === 'offline' ? 'unknown' : 'healthy'
+  const level = worse(worse(fromOpen, fromReading), fromSensor)
+
+  // The dismissal explains the level only when the elevated reading alone sets it:
+  // no open alert or offline sensor on this point reaches the same level.
+  const readingAlone =
+    fromReading === level &&
+    level !== 'healthy' &&
+    healthRank(fromOpen) < healthRank(level) &&
+    healthRank(fromSensor) < healthRank(level)
+  return dismissed && readingAlone
+    ? { level, note: NOTE_FOR_REASON[dismissed.dismissReason] }
+    : { level }
+}
+
 /**
- * Health of an asset, and a note when a dismissed alert explains it.
+ * Health of an asset, and at most one note when a dismissed alert explains it.
  *
  * Health is the worst of, across measurement points:
  * - the severity of any open alert;
@@ -67,39 +111,27 @@ const NOTE_FOR_REASON: Record<Exclude<DismissReason, 'sensor_fault'>, HealthNote
  * - unknown, when the point's latest alert was dismissed as a sensor fault
  *   (its reading is not trusted, so it is not counted) or the sensor is offline.
  *
+ * A note is shown only when the dismissed point is what sets the machine's
+ * health: if any other point, open alert or offline sensor reaches the same
+ * level, there is no note. Notes never stack.
+ *
  * Order: critical > warning > unknown > healthy.
  */
 export function assetStatus(
   asset: Asset,
   alerts: readonly Alert[],
 ): { health: HealthState; note?: HealthNote } {
-  let health: HealthState = 'healthy'
-  let note: HealthNote | undefined
-  const raise = (state: HealthState) => {
-    if (healthRank(state) > healthRank(health)) health = state
-  }
+  const points = asset.points.map((point) =>
+    pointStatus(
+      point,
+      alerts.filter((a) => a.assetId === asset.id && a.pointId === point.id),
+    ),
+  )
+  const health = points.reduce<HealthState>((level, p) => worse(level, p.level), 'healthy')
+  if (health === 'healthy') return { health }
 
-  for (const point of asset.points) {
-    const pointAlerts = alerts.filter((a) => a.assetId === asset.id && a.pointId === point.id)
-    for (const alert of pointAlerts) if (isOpen(alert)) raise(alert.severity)
-
-    const latest = [...pointAlerts].sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
-    const dismissed = latest?.status === 'dismissed' ? latest : undefined
-
-    if (dismissed?.dismissReason === 'sensor_fault') {
-      raise('unknown')
-      note ??= 'sensor_fault'
-      continue
-    }
-    if (point.sensorStatus === 'offline') raise('unknown')
-
-    const fromReading = severityForReading(point.latestReading, point.thresholds)
-    if (fromReading) {
-      raise(fromReading)
-      if (dismissed) note ??= NOTE_FOR_REASON[dismissed.dismissReason]
-    }
-  }
-
+  const setters = points.filter((p) => p.level === health)
+  const note = setters.every((p) => p.note) ? setters[0].note : undefined
   return note ? { health, note } : { health }
 }
 

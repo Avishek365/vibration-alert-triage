@@ -341,3 +341,43 @@ describe('latest readings and health', () => {
     })
   })
 })
+
+describe('dismissal labels on fixture machines', () => {
+  const byName = (name: string) => {
+    const asset = assets.find((a) => a.name === name)!
+    return {
+      asset,
+      status: assetStatus(asset, alerts),
+      own: alerts.filter((a) => a.assetId === asset.id),
+    }
+  }
+
+  it.each(['Kiln ID fan', 'Odour control fan', 'Calender gearbox'])(
+    '%s: Critical from an open alert on one point, so no label for the dismissal on the other',
+    (name) => {
+      const { status, own } = byName(name)
+      // The case only means something if both parts are present.
+      expect(own.some((a) => a.status !== 'dismissed' && a.severity === 'critical')).toBe(true)
+      expect(own.some((a) => a.status === 'dismissed')).toBe(true)
+      const pointsWithOpenCritical = new Set(
+        own
+          .filter((a) => a.status !== 'dismissed' && a.severity === 'critical')
+          .map((a) => a.pointId),
+      )
+      expect(
+        own
+          .filter((a) => a.status === 'dismissed')
+          .every((a) => !pointsWithOpenCritical.has(a.pointId)),
+      ).toBe(true)
+      expect(status).toEqual({ health: 'critical' })
+    },
+  )
+
+  it('keeps labels where the dismissed point alone sets the health', () => {
+    expect(byName('White water pump').status).toEqual({ health: 'warning', note: 'in_maintenance' })
+    expect(byName('Raw water intake pump 2').status).toEqual({
+      health: 'warning',
+      note: 'dismissed_elevated',
+    })
+  })
+})
