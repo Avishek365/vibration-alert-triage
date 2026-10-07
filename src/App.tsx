@@ -12,8 +12,10 @@ function queueHref() {
 
 function App() {
   const { alertId, open, close } = useAlertParam()
-  // The alert last opened, so the queue can return focus to its row.
-  const [lastOpened, setLastOpened] = useState<string | null>(null)
+  // The alert last opened and where from, so Back can return focus to that row.
+  const [lastOpened, setLastOpened] = useState<{ id: string; from: 'queue' | 'machines' } | null>(
+    null,
+  )
 
   return (
     <div className="min-h-screen bg-app text-primary">
@@ -27,9 +29,14 @@ function App() {
           <AlertDetail key={alertId} id={alertId} backHref={queueHref()} onBack={close} />
         ) : (
           <AlertQueue
-            focusAlertId={lastOpened}
+            focusAlertId={lastOpened?.from === 'queue' ? lastOpened.id : null}
+            focusMachineAlertId={lastOpened?.from === 'machines' ? lastOpened.id : null}
             onOpen={(id) => {
-              setLastOpened(id)
+              setLastOpened({ id, from: 'queue' })
+              open(id)
+            }}
+            onOpenFromMachines={(id) => {
+              setLastOpened({ id, from: 'machines' })
               open(id)
             }}
           />

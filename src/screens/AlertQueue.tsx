@@ -16,9 +16,18 @@ interface AlertQueueProps {
   onOpen: (id: string) => void
   /** Row to select and focus once loaded, e.g. the alert just returned from. */
   focusAlertId?: string | null
+  /** Opens an alert from a machine list row. Defaults to `onOpen`. */
+  onOpenFromMachines?: (id: string) => void
+  /** Machine list row to focus after Back from its alert. */
+  focusMachineAlertId?: string | null
 }
 
-export function AlertQueue({ onOpen, focusAlertId }: AlertQueueProps) {
+export function AlertQueue({
+  onOpen,
+  focusAlertId,
+  onOpenFromMachines,
+  focusMachineAlertId,
+}: AlertQueueProps) {
   const [filters, setFilters] = useUrlFilters()
   const alerts = useAlerts(filters)
   const assets = useAssets()
@@ -177,7 +186,11 @@ export function AlertQueue({ onOpen, focusAlertId }: AlertQueueProps) {
 
   return (
     <div className="space-y-4">
-      <HealthSummary siteId={filters.siteId} />
+      <HealthSummary
+        siteId={filters.siteId}
+        onOpenAlert={onOpenFromMachines ?? onOpen}
+        focusAlertId={focusMachineAlertId}
+      />
       <FilterBar filters={filters} sites={sites.data ?? []} onChange={setFilters} />
 
       <p role="status" aria-live="polite" className="min-h-5 text-sm text-primary">

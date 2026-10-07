@@ -7,13 +7,19 @@ import { HealthSummary } from './HealthSummary'
 
 function renderSummary(siteId?: string) {
   const { wrapper } = createQueryWrapper()
-  return { user: userEvent.setup(), ...render(<HealthSummary siteId={siteId} />, { wrapper }) }
+  return {
+    user: userEvent.setup(),
+    ...render(<HealthSummary siteId={siteId} onOpenAlert={() => {}} />, { wrapper }),
+  }
 }
 
 const countButton = (label: string) =>
   screen.findByRole('button', { name: new RegExp(`^${label} \\d+ machines$`) })
 
-beforeEach(() => api.reset())
+beforeEach(() => {
+  api.reset()
+  window.history.replaceState(null, '', '/')
+})
 afterEach(() => vi.restoreAllMocks())
 
 it('opens the list of machines behind a count, matching the count', async () => {

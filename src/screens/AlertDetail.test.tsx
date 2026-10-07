@@ -223,3 +223,84 @@ describe('special states', () => {
     expect(confidence).toHaveTextContent(/often look similar in vibration data/)
   })
 })
+
+describe('machine list rows link to alerts', () => {
+  beforeEach(() => window.history.replaceState(null, '', '/'))
+
+  async function openMachineList(user: ReturnType<typeof userEvent.setup>, label: string) {
+    await user.click(
+      await screen.findByRole('button', { name: new RegExp(`^${label} \\d+ machines$`) }),
+    )
+    return screen.getByRole('region', { name: `${label} machines` })
+  }
+  const rowOf = (panel: HTMLElement, name: string) => within(panel).getByText(name).closest('li')!
+
+  it('opens the most recent open alert for a machine that has one', async () => {
+    const { user } = renderApp()
+    const panel = await openMachineList(user, 'Critical')
+    const press = (await api.listAssets()).find(
+      (a) => a.asset.name === 'Press section drive motor',
+    )!
+    const expected = (await api.getAsset(press.asset.id)).alerts
+      .filter((a) => a.status !== 'dismissed')
+      .sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
+
+    const link = within(rowOf(panel, 'Press section drive motor')).getByRole('link')
+    expect(link).toHaveAccessibleName(/opens its latest open alert$/)
+    await user.click(link)
+
+    expect(await detailHeading()).toHaveTextContent('Press section drive motor')
+    expect(new URLSearchParams(window.location.search).get('alert')).toBe(expected.id)
+  })
+
+  it('opens the dismissed alert, with its correction banner, when there is no open alert', async () => {
+    const { user } = renderApp()
+    const panel = await openMachineList(user, 'Warning')
+    const link = within(rowOf(panel, 'Raw water intake pump 2')).getByRole('link')
+    expect(link).toHaveAccessibleName(/opens its latest dismissed alert$/)
+    await user.click(link)
+    await detailHeading()
+    expect(screen.getByRole('region', { name: 'Corrected by technician' })).toBeInTheDocument()
+  })
+
+  it('leaves a machine with no alerts as plain text', async () => {
+    const { user } = renderApp()
+    const panel = await openMachineList(user, 'Healthy')
+    const healthy = (await api.listAssets()).filter((a) => a.health === 'healthy')
+    const noAlerts = healthy.find((a) => !a.relevantAlertId)!
+    expect(noAlerts).toBeDefined()
+    const row = rowOf(panel, noAlerts.asset.name)
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument()
+    expect(row.querySelector('[tabindex]')).toBeNull()
+  })
+
+  it('is keyboard-operable, and Back returns to the open list with focus on the row', async () => {
+    const { user } = renderApp()
+    const panel = await openMachineList(user, 'Warning')
+    const link = within(rowOf(panel, 'White water pump')).getByRole('link')
+    const alertId = link.getAttribute('data-alert-link')!
+
+    // Tab from the Close button into the rows, then open with Enter.
+    act(() => within(panel).getByRole('button', { name: 'Close' }).focus())
+    while (document.activeElement !== link) await user.tab()
+    await user.keyboard('{Enter}')
+    expect(await detailHeading()).toHaveTextContent('White water pump')
+    expect(window.location.search).toBe(`?machines=warning&alert=${alertId}`)
+
+    await user.keyboard('{Escape}')
+    const reopened = await screen.findByRole('region', { name: 'Warning machines' })
+    expect(window.location.search).toBe('?machines=warning')
+    await waitFor(() =>
+      expect(document.activeElement).toBe(reopened.querySelector(`[data-alert-link="${alertId}"]`)),
+    )
+  })
+
+  it('keeps the open list when the queue filters change', async () => {
+    const { user } = renderApp()
+    await openMachineList(user, 'Critical')
+    const severity = screen.getByRole('group', { name: 'Severity' })
+    await user.click(within(severity).getByRole('button', { name: 'Warning' }))
+    expect(new URLSearchParams(window.location.search).get('machines')).toBe('critical')
+    expect(screen.getByRole('region', { name: 'Critical machines' })).toBeInTheDocument()
+  })
+})

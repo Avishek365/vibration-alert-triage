@@ -73,3 +73,15 @@ export function compareAlerts(a: Alert, b: Alert): number {
   if (byConfidence !== 0) return byConfidence
   return b.triggeredAt.localeCompare(a.triggeredAt)
 }
+
+const newest = (list: readonly Alert[]) =>
+  [...list].sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
+
+/**
+ * The alert a machine should link to: its most recent open alert, otherwise its
+ * most recent dismissed one (which opens with any correction banner).
+ * Undefined when the machine has no alerts.
+ */
+export function relevantAlert(alerts: readonly Alert[]): Alert | undefined {
+  return newest(alerts.filter((a) => a.status !== 'dismissed')) ?? newest(alerts)
+}

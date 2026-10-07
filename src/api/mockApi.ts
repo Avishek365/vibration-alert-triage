@@ -8,6 +8,7 @@ import {
   compareAlerts,
   dismiss,
   matchesAlertFilters,
+  relevantAlert,
   validateDismissInput,
 } from '../domain/alerts'
 import { assetStatus, healthDriver, healthRank, isOpen } from '../domain/health'
@@ -90,11 +91,13 @@ export function createMockApi(options: MockApiOptions = {}) {
     if (!asset) throw new ApiError(404, `Asset ${assetId} not found`)
     const alerts = db.alerts.filter((a) => a.assetId === asset.id)
     const driver = healthDriver(asset, alerts)
+    const relevant = relevantAlert(alerts)
     return {
       asset,
       ...assetStatus(asset, alerts),
       ...(driver ? { driver } : {}),
       openAlertCount: alerts.filter(isOpen).length,
+      ...(relevant ? { relevantAlertId: relevant.id } : {}),
     }
   }
 

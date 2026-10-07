@@ -178,6 +178,8 @@ export interface AssetSummary {
   /** Absent for a healthy machine. */
   driver?: HealthDriver
   openAlertCount: number
+  /** Most recent open alert, else most recent dismissed one; absent with no alerts. */
+  relevantAlertId?: string
 }
 
 export interface AssetDetail extends AssetSummary {

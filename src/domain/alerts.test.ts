@@ -3,6 +3,7 @@ import {
   compareAlerts,
   dismiss,
   matchesAlertFilters,
+  relevantAlert,
   validateDismissInput,
 } from './alerts'
 import type { Alert } from './types'
@@ -115,5 +116,41 @@ describe('confidence band filter', () => {
     expect(matchesAlertFilters(medium, { confidence: ['medium'] }, siteOf)).toBe(true)
     expect(matchesAlertFilters(medium, { confidence: ['low', 'high'] }, siteOf)).toBe(false)
     expect(matchesAlertFilters(medium, { confidence: [] }, siteOf)).toBe(true)
+  })
+})
+
+describe('relevantAlert', () => {
+  const at = (h: number) =>
+    new Date(Date.parse('2026-09-30T08:00:00Z') - h * 3_600_000).toISOString()
+  const make = (
+    id: string,
+    hoursAgo: number,
+    status: 'new' | 'acknowledged' | 'dismissed',
+  ): Alert => {
+    const a: Alert = { ...base, id, triggeredAt: at(hoursAgo), status: 'new' }
+    if (status === 'acknowledged')
+      return { ...a, status, acknowledgedAt: at(0), acknowledgedBy: 'You' }
+    if (status === 'dismissed')
+      return { ...a, status, dismissedAt: at(0), dismissedBy: 'You', dismissReason: 'model_wrong' }
+    return a
+  }
+
+  it('prefers the most recent open alert, even over a newer dismissed one', () => {
+    const alerts = [
+      make('old-open', 10, 'new'),
+      make('new-open', 5, 'acknowledged'),
+      make('newest-dismissed', 1, 'dismissed'),
+    ]
+    expect(relevantAlert(alerts)?.id).toBe('new-open')
+  })
+
+  it('falls back to the most recent dismissed alert', () => {
+    expect(relevantAlert([make('older', 10, 'dismissed'), make('newer', 2, 'dismissed')])?.id).toBe(
+      'newer',
+    )
+  })
+
+  it('is undefined with no alerts', () => {
+    expect(relevantAlert([])).toBeUndefined()
   })
 })

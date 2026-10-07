@@ -1,6 +1,7 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
 import { HEALTH_NOTE_LABELS, formatDayTime, formatMmS } from '../domain/format'
 import type { AssetSummary, HealthState, MeasurementPoint } from '../domain/types'
+import { useMachinesParam } from '../hooks/useMachinesParam'
 import { useNow } from '../hooks/useNow'
 import { useAssets, useSites } from '../queries/assets'
 import { HealthIndicator } from './HealthIndicator'
@@ -40,13 +41,17 @@ function quietestSensor(points: readonly MeasurementPoint[]): MeasurementPoint |
  * sensor state when the sensor is not online.
  */
 function MachineItem({
-  summary: { asset, health, note, driver, openAlertCount },
+  summary: { asset, health, note, driver, openAlertCount, relevantAlertId },
   siteName,
   now,
+  onOpenAlert,
+  linkRef,
 }: {
   summary: AssetSummary
   siteName: string
   now: Date
+  onOpenAlert: (alertId: string) => void
+  linkRef: (alertId: string, el: HTMLAnchorElement | null) => void
 }) {
   const point = asset.points.find((p) => p.id === driver?.pointId) ?? worstPoint(asset.points)
   const quiet = point.sensorStatus !== 'online'
@@ -57,8 +62,8 @@ function MachineItem({
       ? `Open ${health} alert; latest reading below limit`
       : null
 
-  return (
-    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-hairline px-4 py-2 text-sm last:border-b-0">
+  const content = (
+    <>
       <span className="font-medium text-heading">
         {asset.name} <span className="font-normal text-tertiary">{asset.tag}</span>
       </span>
@@ -77,6 +82,35 @@ function MachineItem({
           : `${openAlertCount} open ${openAlertCount === 1 ? 'alert' : 'alerts'}`}
       </span>
       {note && <HealthNoteLabel note={note} />}
+    </>
+  )
+  const row = 'flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2 text-sm'
+
+  return (
+    <li className="border-b border-hairline last:border-b-0">
+      {relevantAlertId ? (
+        // The whole row is one link, so it is a single Tab stop and opens with Enter.
+        <a
+          ref={(el) => linkRef(relevantAlertId, el)}
+          href={`?alert=${encodeURIComponent(relevantAlertId)}`}
+          data-alert-link={relevantAlertId}
+          onClick={(e) => {
+            e.preventDefault()
+            onOpenAlert(relevantAlertId)
+          }}
+          className={`${row} hover:bg-subtle focus-visible:outline-offset-[-2px]`}
+        >
+          {content}
+          <span aria-hidden="true" className="ml-auto text-tertiary">
+            ›
+          </span>
+          <span className="sr-only">
+            , opens {openAlertCount > 0 ? 'its latest open alert' : 'its latest dismissed alert'}
+          </span>
+        </a>
+      ) : (
+        <div className={row}>{content}</div>
+      )}
     </li>
   )
 }
@@ -97,10 +131,30 @@ export function HealthNoteLabel({ note }: { note: NonNullable<AssetSummary['note
  * Machine health counts for the current site filter. Each count is a button
  * that opens the list of machines in that state.
  */
-export function HealthSummary({ siteId }: { siteId?: string }) {
+interface HealthSummaryProps {
+  siteId?: string
+  /** Opens an alert's detail screen. */
+  onOpenAlert: (alertId: string) => void
+  /** Row to focus once its list is showing, e.g. after Back from that alert. */
+  focusAlertId?: string | null
+}
+
+export function HealthSummary({ siteId, onOpenAlert, focusAlertId }: HealthSummaryProps) {
   const assets = useAssets(siteId ? { siteId } : {})
   const sites = useSites()
-  const [open, setOpen] = useState<HealthState | null>(null)
+  const [open, setOpen] = useMachinesParam()
+  const links = useRef(new Map<string, HTMLAnchorElement>())
+  const restored = useRef(false)
+
+  // Back from an alert opened here: the list is open again (it is in the URL),
+  // so put focus back on that row, once.
+  useEffect(() => {
+    if (restored.current || !focusAlertId || !open || !assets.isSuccess) return
+    const link = links.current.get(focusAlertId)
+    if (!link) return
+    restored.current = true
+    link.focus()
+  }, [focusAlertId, open, assets.isSuccess, assets.data])
   const panelId = useId()
   const buttons = useRef(new Map<HealthState, HTMLButtonElement>())
   const now = useNow()
@@ -152,7 +206,7 @@ export function HealthSummary({ siteId }: { siteId?: string }) {
                   type="button"
                   aria-expanded={open === state}
                   aria-controls={panelId}
-                  onClick={() => setOpen((current) => (current === state ? null : state))}
+                  onClick={() => setOpen(open === state ? null : state)}
                   className={`rounded-md border p-1 hover:bg-subtle ${
                     open === state ? 'border-accent bg-accent-subtle' : 'border-transparent'
                   }`}
@@ -199,6 +253,11 @@ export function HealthSummary({ siteId }: { siteId?: string }) {
                     summary={summary}
                     siteName={siteName(summary.asset.siteId)}
                     now={now}
+                    onOpenAlert={onOpenAlert}
+                    linkRef={(id, el) => {
+                      if (el) links.current.set(id, el)
+                      else links.current.delete(id)
+                    }}
                   />
                 ))}
               </ul>

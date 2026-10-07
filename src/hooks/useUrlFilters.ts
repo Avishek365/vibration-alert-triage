@@ -65,10 +65,15 @@ export function subscribe(onChange: () => void) {
 export const getSearch = () => window.location.search
 
 /** Push a new query string and notify every URL-backed hook. */
-export function navigate(query: string, state: unknown = null) {
-  window.history.pushState(state, '', `${window.location.pathname}${query}${window.location.hash}`)
+export function navigate(query: string, state: unknown = null, { replace = false } = {}) {
+  const url = `${window.location.pathname}${query}${window.location.hash}`
+  if (replace) window.history.replaceState(state, '', url)
+  else window.history.pushState(state, '', url)
   window.dispatchEvent(new PopStateEvent('popstate', { state }))
 }
+
+/** URL keys owned by other hooks, kept when the filters change. */
+const PRESERVED_KEYS = ['machines']
 
 /** Filters stored in the URL. Each change adds a history entry, so Back undoes it. */
 export function useUrlFilters() {
@@ -76,7 +81,13 @@ export function useUrlFilters() {
   const filters = useMemo(() => parseFilters(search), [search])
 
   const setFilters = useCallback((next: AlertFilters) => {
-    const query = serialiseFilters(next)
+    const params = new URLSearchParams(serialiseFilters(next))
+    const current = new URLSearchParams(window.location.search)
+    for (const key of PRESERVED_KEYS) {
+      const value = current.get(key)
+      if (value) params.set(key, value)
+    }
+    const query = toQuery(params)
     if (query === window.location.search) return
     navigate(query)
   }, [])
