@@ -126,7 +126,10 @@ describe('machine list rows', () => {
     for (const s of (await api.listAssets()).filter((a) => a.health === 'critical')) {
       const p = s.asset.points.find((pt) => pt.id === s.driver!.pointId)!
       expect(rowFor(panel, s.asset.name).querySelector('[data-reading]')).toHaveTextContent(
-        `${p.latestReading.toFixed(2)} / ${p.thresholds.critical.toFixed(2)} mm/s`,
+        `${p.latestReading.toFixed(2)} mm/s`,
+      )
+      expect(rowFor(panel, s.asset.name).querySelector('[data-reading]')).toHaveTextContent(
+        `· critical limit ${p.thresholds.critical.toFixed(2)} · ${p.name}`,
       )
     }
   })
@@ -134,7 +137,9 @@ describe('machine list rows', () => {
   it('show "Latest" and no sensor indicator when the sensor is online', async () => {
     const panel = await openList('Critical')
     const row = rowFor(panel, 'Press section drive motor')
-    expect(row.querySelector('[data-reading]')).toHaveTextContent(/^Latest /)
+    expect(row.querySelector('[data-reading]')).toHaveTextContent(
+      /^Latest \d+\.\d{2} mm\/s · critical limit \d+\.\d{2} · /,
+    )
     expect(row.querySelector('[data-sensor]')).toBeNull()
   })
 
@@ -145,7 +150,7 @@ describe('machine list rows', () => {
     const row = rowFor(panel, 'Raw mill motor')
     expect(row.querySelector('[data-sensor="offline"]')).toHaveTextContent('Offline')
     expect(row.querySelector('[data-reading]')).toHaveTextContent(
-      `Last reading ${p.latestReading.toFixed(2)} / 7.10 mm/s at ${formatDayTime(p.lastSeenAt)}`,
+      `Last reading ${p.latestReading.toFixed(2)} mm/s at ${formatDayTime(p.lastSeenAt)} · critical limit 7.10`,
     )
   })
 
@@ -156,7 +161,7 @@ describe('machine list rows', () => {
     const row = rowFor(panel, 'Stock pump 2')
     expect(row.querySelector('[data-sensor="stale"]')).toHaveTextContent(/^Sensor Stale \dh$/)
     expect(row.querySelector('[data-reading]')).toHaveTextContent(
-      `Last reading ${p.latestReading.toFixed(2)} / 7.10 mm/s at ${formatDayTime(p.lastSeenAt)}`,
+      `Last reading ${p.latestReading.toFixed(2)} mm/s at ${formatDayTime(p.lastSeenAt)} · critical limit 7.10`,
     )
   })
 
@@ -175,7 +180,9 @@ describe('machine list rows', () => {
     vi.spyOn(api, 'listAssets').mockResolvedValue([crafted])
     const panel = await openList('Critical')
     const row = rowFor(panel, real.asset.name)
-    expect(row.querySelector('[data-reading]')).toHaveTextContent('10.19 / 11.20 mm/s')
+    expect(row.querySelector('[data-reading]')).toHaveTextContent(
+      /^Latest 10\.19 mm\/s · critical limit 11\.20 · /,
+    )
     expect(row).toHaveTextContent('Open critical alert; latest reading below limit')
   })
 

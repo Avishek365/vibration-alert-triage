@@ -304,3 +304,40 @@ describe('machine list rows link to alerts', () => {
     expect(screen.getByRole('region', { name: 'Critical machines' })).toBeInTheDocument()
   })
 })
+
+describe('header readings', () => {
+  it('shows the reading the alert was raised at, the latest reading, and the named limit', async () => {
+    renderApp('/?alert=al-005')
+    await detailHeading()
+    const { alert, point } = await api.getAlert('al-005')
+    const label = point.sensorStatus === 'online' ? 'Latest' : 'Last reading'
+    expect(document.querySelector('[data-readings]')).toHaveTextContent(
+      `Raised at ${alert.reading.toFixed(2)} mm/s · ${label} ${point.latestReading.toFixed(2)} mm/s · ${alert.severity} limit ${alert.thresholds[alert.severity].toFixed(2)}`,
+    )
+  })
+
+  it('agrees with the last point on the chart', async () => {
+    renderApp('/?alert=al-001')
+    await detailHeading()
+    const { point } = await api.getAlert('al-001')
+    const trend = await api.getAlertTrend('al-001')
+    expect(trend.points.at(-1)!.value).toBe(point.latestReading)
+    expect(document.querySelector('[data-readings]')).toHaveTextContent(
+      `Latest ${point.latestReading.toFixed(2)} mm/s`,
+    )
+  })
+
+  it('says "Last reading" when the sensor went quiet', async () => {
+    const quiet = []
+    for (const a of await api.listAlerts({ status: ['new', 'acknowledged', 'dismissed'] })) {
+      const d = await api.getAlert(a.id)
+      if (d.point.sensorStatus === 'offline') quiet.push(d)
+    }
+    const { alert, point } = quiet[0]
+    renderApp(`/?alert=${alert.id}`)
+    await detailHeading()
+    expect(document.querySelector('[data-readings]')).toHaveTextContent(
+      `· Last reading ${point.latestReading.toFixed(2)} mm/s ·`,
+    )
+  })
+})

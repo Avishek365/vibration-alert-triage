@@ -70,9 +70,9 @@ function MachineItem({
       <span className="text-secondary">{siteName}</span>
       <span data-reading className="text-secondary tabular-nums">
         {quiet ? 'Last reading' : 'Latest'}{' '}
-        <span className="text-primary">{point.latestReading.toFixed(2)}</span> /{' '}
-        {formatMmS(point.thresholds.critical)}
-        {quiet && <> at {formatDayTime(point.lastSeenAt)}</>} · {point.name}
+        <span className="text-primary">{formatMmS(point.latestReading)}</span>
+        {quiet && <> at {formatDayTime(point.lastSeenAt)}</>} · critical limit{' '}
+        {point.thresholds.critical.toFixed(2)} · {point.name}
       </span>
       {reason && <span className="text-primary">{reason}</span>}
       {sensor && <SensorStatusIndicator point={sensor} now={now} />}

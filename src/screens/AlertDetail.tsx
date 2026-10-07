@@ -139,12 +139,13 @@ export function AlertDetail({ id, backHref, onBack }: AlertDetailProps) {
         <p className="text-sm text-secondary">
           {site.name} · {point.name}
         </p>
-        <p className="text-sm text-primary">
-          <span className="font-medium">{FAULT_LABELS[alert.faultType]}</span> ·{' '}
-          <span className="tabular-nums">
-            {formatMmS(alert.reading)} against a {alert.severity} limit of{' '}
-            {formatMmS(alert.thresholds[alert.severity])}
-          </span>
+        <p className="text-sm font-medium text-primary">{FAULT_LABELS[alert.faultType]}</p>
+        {/* Both numbers: what the alert was raised at, and where the reading is now. */}
+        <p data-readings className="text-sm text-secondary tabular-nums">
+          Raised at <span className="text-primary">{formatMmS(alert.reading)}</span> ·{' '}
+          {point.sensorStatus === 'online' ? 'Latest' : 'Last reading'}{' '}
+          <span className="text-primary">{formatMmS(point.latestReading)}</span> · {alert.severity}{' '}
+          limit {alert.thresholds[alert.severity].toFixed(2)}
         </p>
         <div className="flex flex-wrap gap-2">
           {alert.status === 'new' && (
