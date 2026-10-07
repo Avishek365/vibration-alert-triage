@@ -16,19 +16,19 @@ A personal portfolio project on designing for model uncertainty in vibration ale
 
 ### Red, amber and green mean machine health only
 
-TODO
+Those three colours appear only on the severity badge, the health summary and the two threshold lines on the chart. Everything else is neutral grey, and indigo marks only what you can act on or what is selected. Healthy is a plain dot, not a filled pill, so a screen full of healthy machines stays quiet and the one that matters stands out. Every state also has a shape and a text label, so colour is never the only signal.
 
 ### Confidence in plain words, not colour
 
-TODO
+Confidence is a grey three-bar meter with a band (Low, Medium, High) and the number. It stays grey on purpose: red, amber or green would read as machine health, and indigo would look clickable. On the detail screen, a "What the model is unsure about" list explains the number in sentences, for example when only one frequency band is raised or the pattern also fits another fault. A technician can judge an alert without decoding a score.
 
 ### Missing data never reads as healthy
 
-TODO
+When a sensor goes quiet, the trend line stops at the last reading and the gap is a hatched area labelled "No data since…". The banner says the readings are missing, not normal, and gives the last known value and whether it was above a limit. In the queue, online sensors show nothing and only stale or offline ones get an indicator, so exceptions stand out. Machine lists switch to "Last reading… at [time]" when a sensor is stale.
 
 ### "Model was wrong" is a correction, not a failure
 
-TODO
+Dismissing an alert with that reason shows a neutral "Corrected by technician" banner, with no red and no warning icon, and the original model estimate stays visible in muted text. Dismissing never lowers a machine's health either: health follows the latest reading, so a wrong diagnosis can't make a still-elevated machine look Healthy. It shows "Dismissed, still elevated" instead.
 
 ### Sort order: severity, then confidence, then newest
 
