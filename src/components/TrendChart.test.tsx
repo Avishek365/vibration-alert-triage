@@ -151,28 +151,78 @@ it('shows no gap for an online sensor', () => {
   expect(container.querySelector('[data-gap]')).toBeNull()
 })
 
-it('gives limit labels a wide white halo and draws them above everything else', async () => {
-  const { container, user } = renderChart()
-  await user.tab() // shows the crosshair and active marker
+/** x coordinates of every vertex of the data line. */
+function lineXs(container: HTMLElement): number[] {
+  const d = container.querySelector('path')!.getAttribute('d')!
+  return [...d.matchAll(/[ML]([\d.]+),/g)].map((m) => Number(m[1]))
+}
+
+it('keeps limit labels in the right margin, outside the plot, with no halo', () => {
+  const { container } = renderChart()
   const svg = container.querySelector('svg')!
+  const plotRight =
+    Math.max(
+      ...[...svg.querySelectorAll('line[data-threshold]')].map((l) => Number(l.getAttribute('x2'))),
+    ) - 4
   const labels = [...svg.querySelectorAll('[data-threshold-label]')]
   expect(labels).toHaveLength(2)
   for (const label of labels) {
-    expect(label.getAttribute('class')).toContain('stroke-surface')
-    expect(label).toHaveAttribute('paint-order', 'stroke')
-    expect(Number(label.getAttribute('stroke-width'))).toBeGreaterThanOrEqual(6)
+    expect(Number(label.getAttribute('x'))).toBeGreaterThan(plotRight)
+    expect(label).toHaveAttribute('text-anchor', 'start')
+    // No halo: nothing painted around the text that could cover data.
+    expect(label.hasAttribute('stroke-width')).toBe(false)
+    expect(label.hasAttribute('paint-order')).toBe(false)
+    expect(label.getAttribute('class')).not.toMatch(/stroke-/)
   }
-  // The labels are the last things painted, after the line, end dot and crosshair.
-  const children = [...svg.children]
-  const firstLabel = children.indexOf(labels[0])
-  for (const el of [svg.querySelector('path'), svg.querySelector('[data-crosshair]')]) {
-    expect(children.indexOf(el as Element)).toBeLessThan(firstLabel)
+  expect(labels.map((l) => l.textContent)).toEqual(['Critical 7.10 mm/s', 'Warning 4.50 mm/s'])
+})
+
+it('leaves the data line unbroken at the label positions', () => {
+  const { container } = renderChart()
+  const svg = container.querySelector('svg')!
+  const d = svg.querySelector('path')!.getAttribute('d')!
+  // One continuous path: a single move, then line segments only.
+  expect(d.match(/M/g)).toHaveLength(1)
+  expect(lineXs(container)).toHaveLength(trend.points.length)
+  // Every label starts to the right of the line's furthest point, so none overlaps it.
+  const lineEnd = Math.max(...lineXs(container))
+  for (const label of svg.querySelectorAll('[data-threshold-label]')) {
+    expect(Number(label.getAttribute('x'))).toBeGreaterThan(lineEnd)
   }
-  expect(children.slice(firstLabel).every((el) => el.hasAttribute('data-threshold-label'))).toBe(
-    true,
+  // And no text inside the plot carries a halo over the line.
+  const haloed = [...svg.querySelectorAll('text[paint-order]')]
+  expect(haloed).toHaveLength(0)
+})
+
+it('keeps the two labels apart when the limits are close', () => {
+  const close = { warning: 6.9, critical: 7.1 }
+  const { container } = render(
+    <TrendChart trend={trend} thresholds={close} triggeredAt={iso(end - HOUR)} descriptionId="d" />,
   )
-  // Limit lines sit beneath the data line.
-  expect(children.indexOf(svg.querySelector('line[data-threshold]')!)).toBeLessThan(
-    children.indexOf(svg.querySelector('path')!),
+  const [critical, warning] = ['critical', 'warning'].map((k) =>
+    Number(container.querySelector(`[data-threshold-label="${k}"]`)!.getAttribute('y')),
+  )
+  expect(warning - critical).toBeGreaterThanOrEqual(28)
+})
+
+it('captions a narrow no-data gap under the chart instead of inside the plot', () => {
+  const quiet: AlertTrend = {
+    ...trend,
+    sensorStatus: 'stale',
+    lastReadingAt: trend.points.at(-1)!.at,
+    windowEnd: iso(end + 3 * HOUR),
+    windowStart: iso(end - 45 * HOUR),
+  }
+  const { container } = render(
+    <TrendChart
+      trend={quiet}
+      thresholds={thresholds}
+      triggeredAt={iso(end - HOUR)}
+      descriptionId="d"
+    />,
+  )
+  expect(container.querySelector('[data-gap] text')).toBeNull()
+  expect(container.querySelector('[data-gap-caption]')).toHaveTextContent(
+    `No data since ${formatDayTime(quiet.lastReadingAt)}`,
   )
 })

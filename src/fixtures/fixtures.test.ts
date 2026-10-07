@@ -381,3 +381,43 @@ describe('dismissal labels on fixture machines', () => {
     })
   })
 })
+
+describe('trend stability', () => {
+  // Regression: noise used to follow the order of draws from the window start, so
+  // the same reading changed as the window slid (Raw mill motor: 9.02 vs 8.63).
+  it.each(alerts.map((a) => [a.id, a] as const))(
+    '%s: a reading at a given time is the same whenever the trend is viewed',
+    (_, alert) => {
+      const point = assets
+        .find((a) => a.id === alert.assetId)!
+        .points.find((p) => p.id === alert.pointId)!
+      const values = new Map<string, number>()
+      for (const hoursLater of [0, 0.5, 1, 2, 5, 13]) {
+        const viewedAt = new Date(now.getTime() + hoursLater * 3_600_000)
+        for (const p of buildTrend(alert, point, viewedAt).points) {
+          if (values.has(p.at)) expect(p.value).toBe(values.get(p.at))
+          else values.set(p.at, p.value)
+        }
+      }
+    },
+  )
+
+  it("matches each point's latest reading to the detail trend's last reading, viewed later", () => {
+    for (const hoursLater of [0, 0.5, 1, 2, 5]) {
+      const viewedAt = new Date(now.getTime() + hoursLater * 3_600_000)
+      for (const alert of alerts) {
+        const point = assets
+          .find((a) => a.id === alert.assetId)!
+          .points.find((p) => p.id === alert.pointId)!
+        const latestOnPoint = alerts
+          .filter((a) => a.pointId === point.id)
+          .sort((a, b) => b.triggeredAt.localeCompare(a.triggeredAt))[0]
+        if (latestOnPoint.id !== alert.id) continue
+        const last = buildTrend(alert, point, viewedAt).points.at(-1)!
+        if (last.at === buildTrend(alert, point, now).points.at(-1)!.at) {
+          expect(last.value).toBe(point.latestReading)
+        }
+      }
+    }
+  })
+})

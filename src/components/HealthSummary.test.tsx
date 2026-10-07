@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { api } from '../api/mockApi'
+import { formatDayTime } from '../domain/format'
 import { createQueryWrapper } from '../test/queryWrapper'
 import { HealthSummary } from './HealthSummary'
 
@@ -13,6 +14,7 @@ const countButton = (label: string) =>
   screen.findByRole('button', { name: new RegExp(`^${label} \\d+ machines$`) })
 
 beforeEach(() => api.reset())
+afterEach(() => vi.restoreAllMocks())
 
 it('opens the list of machines behind a count, matching the count', async () => {
   const { user } = renderSummary()
@@ -103,4 +105,76 @@ it('follows the site filter', async () => {
   for (const item of within(within(panel).getByRole('list')).getAllByRole('listitem')) {
     expect(item).toHaveTextContent('Kestrel Bay Water Treatment')
   }
+})
+
+describe('machine list rows', () => {
+  async function openList(label: string) {
+    const { user } = renderSummary()
+    await user.click(await countButton(label))
+    return screen.getByRole('region', { name: `${label} machines` })
+  }
+  const rowFor = (panel: HTMLElement, name: string) => within(panel).getByText(name).closest('li')!
+
+  it("show each machine's reading against its own critical limit", async () => {
+    const panel = await openList('Critical')
+    for (const s of (await api.listAssets()).filter((a) => a.health === 'critical')) {
+      const p = s.asset.points.find((pt) => pt.id === s.driver!.pointId)!
+      expect(rowFor(panel, s.asset.name).querySelector('[data-reading]')).toHaveTextContent(
+        `${p.latestReading.toFixed(2)} / ${p.thresholds.critical.toFixed(2)} mm/s`,
+      )
+    }
+  })
+
+  it('show "Latest" and no sensor indicator when the sensor is online', async () => {
+    const panel = await openList('Critical')
+    const row = rowFor(panel, 'Press section drive motor')
+    expect(row.querySelector('[data-reading]')).toHaveTextContent(/^Latest /)
+    expect(row.querySelector('[data-sensor]')).toBeNull()
+  })
+
+  it('show "Offline" and "Last reading … at …" for an offline sensor', async () => {
+    const panel = await openList('Critical')
+    const motor = (await api.listAssets()).find((a) => a.asset.name === 'Raw mill motor')!
+    const p = motor.asset.points.find((pt) => pt.id === motor.driver!.pointId)!
+    const row = rowFor(panel, 'Raw mill motor')
+    expect(row.querySelector('[data-sensor="offline"]')).toHaveTextContent('Offline')
+    expect(row.querySelector('[data-reading]')).toHaveTextContent(
+      `Last reading ${p.latestReading.toFixed(2)} / 7.10 mm/s at ${formatDayTime(p.lastSeenAt)}`,
+    )
+  })
+
+  it('show "Stale" with its age and "Last reading … at …" for a stale sensor', async () => {
+    const panel = await openList('Critical')
+    const pump = (await api.listAssets()).find((a) => a.asset.name === 'Stock pump 2')!
+    const p = pump.asset.points.find((pt) => pt.id === pump.driver!.pointId)!
+    const row = rowFor(panel, 'Stock pump 2')
+    expect(row.querySelector('[data-sensor="stale"]')).toHaveTextContent(/^Sensor Stale \dh$/)
+    expect(row.querySelector('[data-reading]')).toHaveTextContent(
+      `Last reading ${p.latestReading.toFixed(2)} / 7.10 mm/s at ${formatDayTime(p.lastSeenAt)}`,
+    )
+  })
+
+  it('show a reason when Critical comes from an open alert while the reading is below the limit', async () => {
+    const [real] = (await api.listAssets()).filter((a) => a.health === 'critical')
+    const point = {
+      ...real.asset.points[0],
+      latestReading: 10.19,
+      thresholds: { warning: 7.1, critical: 11.2 },
+    }
+    const crafted = {
+      ...real,
+      asset: { ...real.asset, points: [point, ...real.asset.points.slice(1)] },
+      driver: { pointId: point.id, cause: 'alert' as const },
+    }
+    vi.spyOn(api, 'listAssets').mockResolvedValue([crafted])
+    const panel = await openList('Critical')
+    const row = rowFor(panel, real.asset.name)
+    expect(row.querySelector('[data-reading]')).toHaveTextContent('10.19 / 11.20 mm/s')
+    expect(row).toHaveTextContent('Open critical alert; latest reading below limit')
+  })
+
+  it('show no reason when the reading itself sets the level', async () => {
+    const panel = await openList('Critical')
+    expect(panel).not.toHaveTextContent('latest reading below limit')
+  })
 })

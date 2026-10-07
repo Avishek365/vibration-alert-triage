@@ -3,6 +3,8 @@ import type {
   Asset,
   DismissReason,
   MeasurementPoint,
+  HealthCause,
+  HealthDriver,
   HealthNote,
   HealthState,
   SensorStatus,
@@ -65,6 +67,8 @@ interface PointStatus {
   level: HealthState
   /** Set only when a dismissed alert, and nothing else on this point, sets `level`. */
   note?: HealthNote
+  /** What sets `level` on this point. */
+  cause: HealthCause
 }
 
 function pointStatus(point: MeasurementPoint, pointAlerts: readonly Alert[]): PointStatus {
@@ -80,8 +84,8 @@ function pointStatus(point: MeasurementPoint, pointAlerts: readonly Alert[]): Po
   if (dismissed?.dismissReason === 'sensor_fault') {
     const level = worse(fromOpen, 'unknown')
     return level === 'unknown' && fromOpen !== 'unknown'
-      ? { level, note: 'sensor_fault' }
-      : { level }
+      ? { level, note: 'sensor_fault', cause: 'sensor_fault' }
+      : { level, cause: 'alert' }
   }
 
   const fromReading: HealthState =
@@ -96,9 +100,18 @@ function pointStatus(point: MeasurementPoint, pointAlerts: readonly Alert[]): Po
     level !== 'healthy' &&
     healthRank(fromOpen) < healthRank(level) &&
     healthRank(fromSensor) < healthRank(level)
+  // When several sources reach the level, the reading is the most direct explanation.
+  const cause: HealthCause =
+    level === 'healthy'
+      ? 'none'
+      : fromReading === level
+        ? 'reading'
+        : fromOpen === level
+          ? 'alert'
+          : 'offline'
   return dismissed && readingAlone
-    ? { level, note: NOTE_FOR_REASON[dismissed.dismissReason] }
-    : { level }
+    ? { level, note: NOTE_FOR_REASON[dismissed.dismissReason], cause }
+    : { level, cause }
 }
 
 /**
@@ -133,6 +146,32 @@ export function assetStatus(
   const setters = points.filter((p) => p.level === health)
   const note = setters.every((p) => p.note) ? setters[0].note : undefined
   return note ? { health, note } : { health }
+}
+
+/**
+ * The measurement point that sets the machine's health, and why. When several
+ * points set it, the one whose reading is highest against its critical limit.
+ * Undefined for a healthy machine.
+ */
+export function healthDriver(asset: Asset, alerts: readonly Alert[]): HealthDriver | undefined {
+  const points = asset.points.map((point) => ({
+    point,
+    status: pointStatus(
+      point,
+      alerts.filter((a) => a.assetId === asset.id && a.pointId === point.id),
+    ),
+  }))
+  const health = points.reduce<HealthState>((level, p) => worse(level, p.status.level), 'healthy')
+  if (health === 'healthy') return undefined
+  const setter = points
+    .filter((p) => p.status.level === health)
+    .reduce((best, p) =>
+      p.point.latestReading / p.point.thresholds.critical >
+      best.point.latestReading / best.point.thresholds.critical
+        ? p
+        : best,
+    )
+  return { pointId: setter.point.id, cause: setter.status.cause }
 }
 
 export function assetHealth(asset: Asset, alerts: readonly Alert[]): HealthState {

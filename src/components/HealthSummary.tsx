@@ -1,8 +1,10 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react'
-import { HEALTH_NOTE_LABELS, formatMmS } from '../domain/format'
+import { HEALTH_NOTE_LABELS, formatDayTime, formatMmS } from '../domain/format'
 import type { AssetSummary, HealthState, MeasurementPoint } from '../domain/types'
+import { useNow } from '../hooks/useNow'
 import { useAssets, useSites } from '../queries/assets'
 import { HealthIndicator } from './HealthIndicator'
+import { SensorStatusIndicator } from './SensorStatusIndicator'
 
 const ORDER: HealthState[] = ['critical', 'warning', 'unknown', 'healthy']
 
@@ -19,6 +21,63 @@ function worstPoint(points: readonly MeasurementPoint[]): MeasurementPoint {
     p.latestReading / p.thresholds.warning > worst.latestReading / worst.thresholds.warning
       ? p
       : worst,
+  )
+}
+
+const SENSOR_RANK = { online: 0, stale: 1, offline: 2 } as const
+
+/** The point whose sensor is in the worst state, if any is not online. */
+function quietestSensor(points: readonly MeasurementPoint[]): MeasurementPoint | undefined {
+  const worst = points.reduce((a, b) =>
+    SENSOR_RANK[b.sensorStatus] > SENSOR_RANK[a.sensorStatus] ? b : a,
+  )
+  return worst.sensorStatus === 'online' ? undefined : worst
+}
+
+/**
+ * One machine in a health list: its reading against its own critical limit,
+ * why it is in this state when the reading alone does not explain it, and the
+ * sensor state when the sensor is not online.
+ */
+function MachineItem({
+  summary: { asset, health, note, driver, openAlertCount },
+  siteName,
+  now,
+}: {
+  summary: AssetSummary
+  siteName: string
+  now: Date
+}) {
+  const point = asset.points.find((p) => p.id === driver?.pointId) ?? worstPoint(asset.points)
+  const quiet = point.sensorStatus !== 'online'
+  const sensor = quietestSensor(asset.points)
+  // Critical or Warning from an open alert while the reading is under that limit.
+  const reason =
+    driver?.cause === 'alert' && (health === 'critical' || health === 'warning')
+      ? `Open ${health} alert; latest reading below limit`
+      : null
+
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-hairline px-4 py-2 text-sm last:border-b-0">
+      <span className="font-medium text-heading">
+        {asset.name} <span className="font-normal text-tertiary">{asset.tag}</span>
+      </span>
+      <span className="text-secondary">{siteName}</span>
+      <span data-reading className="text-secondary tabular-nums">
+        {quiet ? 'Last reading' : 'Latest'}{' '}
+        <span className="text-primary">{point.latestReading.toFixed(2)}</span> /{' '}
+        {formatMmS(point.thresholds.critical)}
+        {quiet && <> at {formatDayTime(point.lastSeenAt)}</>} · {point.name}
+      </span>
+      {reason && <span className="text-primary">{reason}</span>}
+      {sensor && <SensorStatusIndicator point={sensor} now={now} />}
+      <span className="text-secondary">
+        {openAlertCount === 0
+          ? 'No open alerts'
+          : `${openAlertCount} open ${openAlertCount === 1 ? 'alert' : 'alerts'}`}
+      </span>
+      {note && <HealthNoteLabel note={note} />}
+    </li>
   )
 }
 
@@ -44,6 +103,7 @@ export function HealthSummary({ siteId }: { siteId?: string }) {
   const [open, setOpen] = useState<HealthState | null>(null)
   const panelId = useId()
   const buttons = useRef(new Map<HealthState, HTMLButtonElement>())
+  const now = useNow()
 
   const siteName = (id: string) => sites.data?.find((s) => s.id === id)?.name ?? ''
   const inState = (state: HealthState) => (assets.data ?? []).filter((a) => a.health === state)
@@ -133,29 +193,14 @@ export function HealthSummary({ siteId }: { siteId?: string }) {
               <p className="px-4 py-3 text-sm text-secondary">No machines in this state.</p>
             ) : (
               <ul aria-label={`${STATE_LABELS[open]} machines`}>
-                {inState(open).map(({ asset, note, openAlertCount }) => {
-                  const point = worstPoint(asset.points)
-                  return (
-                    <li
-                      key={asset.id}
-                      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-hairline px-4 py-2 text-sm last:border-b-0"
-                    >
-                      <span className="font-medium text-heading">
-                        {asset.name} <span className="font-normal text-tertiary">{asset.tag}</span>
-                      </span>
-                      <span className="text-secondary">{siteName(asset.siteId)}</span>
-                      <span className="text-secondary tabular-nums">
-                        Latest {formatMmS(point.latestReading)} · {point.name}
-                      </span>
-                      <span className="text-secondary">
-                        {openAlertCount === 0
-                          ? 'No open alerts'
-                          : `${openAlertCount} open ${openAlertCount === 1 ? 'alert' : 'alerts'}`}
-                      </span>
-                      {note && <HealthNoteLabel note={note} />}
-                    </li>
-                  )
-                })}
+                {inState(open).map((summary) => (
+                  <MachineItem
+                    key={summary.asset.id}
+                    summary={summary}
+                    siteName={siteName(summary.asset.siteId)}
+                    now={now}
+                  />
+                ))}
               </ul>
             )}
           </div>

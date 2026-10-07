@@ -1,4 +1,11 @@
-import { assetHealth, assetStatus, healthRank, sensorStatusFor, severityForReading } from './health'
+import {
+  assetHealth,
+  assetStatus,
+  healthDriver,
+  healthRank,
+  sensorStatusFor,
+  severityForReading,
+} from './health'
 import { dismiss } from './alerts'
 import type { Alert, Asset, MeasurementPoint } from './types'
 
@@ -278,5 +285,46 @@ describe('assetStatus: a dismissal label only when the dismissed point sets the 
     ])
     expect(result.health).toBe('warning')
     expect(typeof result.note).toBe('string')
+  })
+})
+
+describe('healthDriver', () => {
+  const p1 = (o: Partial<MeasurementPoint> = {}) => point({ id: 'p1', ...o })
+  const p2 = (o: Partial<MeasurementPoint> = {}) => point({ id: 'p2', ...o })
+
+  it('is undefined for a healthy machine', () => {
+    expect(healthDriver(asset([p1()]), [])).toBeUndefined()
+  })
+
+  it('names an open alert when the reading is below that limit', () => {
+    expect(
+      healthDriver(asset([p1({ latestReading: 6.5 })]), [alert({ severity: 'critical' })]),
+    ).toEqual({
+      pointId: 'p1',
+      cause: 'alert',
+    })
+  })
+
+  it('names the reading when it reaches the level, even with an open alert', () => {
+    expect(
+      healthDriver(asset([p1({ latestReading: 7.3 })]), [alert({ severity: 'critical' })]),
+    ).toEqual({
+      pointId: 'p1',
+      cause: 'reading',
+    })
+  })
+
+  it('names an offline sensor or a sensor fault for Unknown', () => {
+    expect(healthDriver(asset([p1({ sensorStatus: 'offline' })]), [])).toEqual({
+      pointId: 'p1',
+      cause: 'offline',
+    })
+    const faulty = dismiss(alert(), { reason: 'sensor_fault' }, now)
+    expect(healthDriver(asset([p1()]), [faulty])).toEqual({ pointId: 'p1', cause: 'sensor_fault' })
+  })
+
+  it('picks the setter whose reading is highest against its critical limit', () => {
+    const machine = asset([p1({ latestReading: 7.2 }), p2({ latestReading: 9 })])
+    expect(healthDriver(machine, [])).toEqual({ pointId: 'p2', cause: 'reading' })
   })
 })

@@ -13,9 +13,14 @@ interface TrendChartProps {
 }
 
 const HOUR_MS = 60 * 60 * 1000
-const MARGIN = { top: 28, right: 12, bottom: 28, left: 40 }
-/** Text halo in px: wider than the 2px line and the marker ring it may sit over. */
+/** The right margin holds the limit labels, outside the plot, so they never cover data. */
+const MARGIN = { top: 28, right: 76, bottom: 28, left: 40 }
+/** Halo for the "No data since" label, which only ever sits inside the empty gap. */
 const HALO_WIDTH = 6
+/** Height of a two-line limit label, used to keep the two labels apart. */
+const LABEL_BLOCK = 28
+/** Narrowest gap that can hold the "No data since" label inside it. */
+const GAP_LABEL_MIN = 150
 
 /** Rounded axis maximum and evenly spaced ticks from 0. */
 function niceScale(max: number, targetTicks: number) {
@@ -52,6 +57,7 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
   const height = narrow ? 220 : 260
   const plotW = Math.max(width - MARGIN.left - MARGIN.right, 1)
   const plotH = height - MARGIN.top - MARGIN.bottom
+  const plotRight = MARGIN.left + plotW
   const readoutId = useId()
   const hatchId = `hatch-${useId().replace(/:/g, '')}`
 
@@ -83,8 +89,8 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
   // A quiet sensor leaves the rest of the window empty: shade it and say so.
   const gapStart = trend.sensorStatus === 'online' ? null : Date.parse(trend.lastReadingAt)
   const gapX = gapStart === null ? 0 : x(Math.max(gapStart, start))
-  const gapWidth = width - MARGIN.right - gapX
-  const gapLabelInside = gapWidth >= 150
+  const gapWidth = plotRight - gapX
+  const gapLabelInside = gapWidth >= GAP_LABEL_MIN
 
   function nearestIndex(clientX: number, rect: DOMRect) {
     const ms = start + ((clientX - rect.left - MARGIN.left) / plotW) * (end - start)
@@ -136,6 +142,21 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
     },
   ]
 
+  // Each label's first line sits just above its limit line. If the limits are
+  // close, push the labels apart so they never overlap, staying inside the chart.
+  const labelY = (() => {
+    let critical = y(thresholds.critical) - 2
+    let warning = y(thresholds.warning) - 2
+    const overlap = LABEL_BLOCK - (warning - critical)
+    if (overlap > 0) {
+      critical -= overlap / 2
+      warning += overlap / 2
+    }
+    critical = Math.max(critical, 12)
+    warning = Math.min(Math.max(warning, critical + LABEL_BLOCK), height - 18)
+    return { critical, warning } as Record<string, number>
+  })()
+
   return (
     <div>
       <div
@@ -170,7 +191,7 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
             <g key={t}>
               <line
                 x1={MARGIN.left}
-                x2={width - MARGIN.right}
+                x2={plotRight}
                 y1={y(t)}
                 y2={y(t)}
                 className="stroke-hairline"
@@ -242,27 +263,32 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
                 fill={`url(#${hatchId})`}
                 className="opacity-70"
               />
-              <text
-                x={gapLabelInside ? gapX + gapWidth / 2 : width - MARGIN.right - 4}
-                y={MARGIN.top + 16}
-                textAnchor={gapLabelInside ? 'middle' : 'end'}
-                className="fill-primary stroke-surface text-xs font-medium"
-                strokeWidth={HALO_WIDTH}
-                strokeLinejoin="round"
-                paintOrder="stroke"
-              >
-                No data since {formatDayTime(trend.lastReadingAt)}
-              </text>
+              {/* Inside the gap there is no data line, so the halo only covers hatching.
+                  A narrower gap gets a caption under the chart instead. */}
+              {gapLabelInside && (
+                <text
+                  x={gapX + gapWidth / 2}
+                  y={MARGIN.top + 16}
+                  textAnchor="middle"
+                  className="fill-primary stroke-surface text-xs font-medium"
+                  strokeWidth={HALO_WIDTH}
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
+                >
+                  No data since {formatDayTime(trend.lastReadingAt)}
+                </text>
+              )}
             </g>
           )}
 
-          {/* Limit lines sit under the data line; their labels are drawn last, on top. */}
+          {/* Limit lines sit under the data line and run a few px into the margin,
+              to their labels. */}
           {thresholdLines.map((t) => (
             <line
               key={t.key}
               data-threshold={t.key}
               x1={MARGIN.left}
-              x2={width - MARGIN.right}
+              x2={plotRight + 4}
               y1={y(t.value)}
               y2={y(t.value)}
               className={t.line}
@@ -310,25 +336,36 @@ export function TrendChart({ trend, thresholds, triggeredAt, descriptionId }: Tr
             </g>
           )}
 
-          {/* Last layer: nothing can cover the labels, and a wide white (surface) halo
-              keeps them readable where the data line or a marker passes behind. */}
+          {/* Limit labels live in the right margin, outside the plot: nothing they
+              draw can overlap the data line, so they need no halo. */}
           {thresholdLines.map((t) => (
             <text
               key={t.key}
               data-threshold-label={t.key}
-              x={width - MARGIN.right - 4}
-              y={y(t.value) - 6}
-              textAnchor="end"
-              className={`${t.text} stroke-surface text-xs font-medium`}
-              strokeWidth={HALO_WIDTH}
-              strokeLinejoin="round"
-              paintOrder="stroke"
+              x={plotRight + 8}
+              y={labelY[t.key]}
+              textAnchor="start"
+              className={`${t.text} text-xs`}
             >
-              {t.label} {formatMmS(t.value)}
+              <tspan x={plotRight + 8} className="font-medium">
+                {t.label}
+              </tspan>{' '}
+              <tspan x={plotRight + 8} dy="1.2em" className="tabular-nums">
+                {formatMmS(t.value)}
+              </tspan>
             </text>
           ))}
         </svg>
       </div>
+
+      {gapStart !== null && gapWidth > 0 && !gapLabelInside && (
+        <p data-gap-caption className="mt-2 flex items-center gap-2 text-xs text-secondary">
+          <svg aria-hidden="true" viewBox="0 0 12 12" className="size-3">
+            <rect width="12" height="12" fill={`url(#${hatchId})`} />
+          </svg>
+          No data since {formatDayTime(trend.lastReadingAt)}
+        </p>
+      )}
 
       <p
         id={readoutId}

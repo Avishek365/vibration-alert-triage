@@ -161,11 +161,22 @@ export interface AssetFilters {
 export type HealthNote =
   'known_condition' | 'in_maintenance' | 'dismissed_elevated' | 'sensor_fault'
 
+/** What sets a machine's health: an open alert, the latest reading, a sensor fault or an offline sensor. */
+export type HealthCause = 'alert' | 'reading' | 'sensor_fault' | 'offline' | 'none'
+
+export interface HealthDriver {
+  /** Measurement point that sets the machine's health. */
+  pointId: string
+  cause: HealthCause
+}
+
 /** Asset with its derived health, as returned by list endpoints. */
 export interface AssetSummary {
   asset: Asset
   health: HealthState
   note?: HealthNote
+  /** Absent for a healthy machine. */
+  driver?: HealthDriver
   openAlertCount: number
 }
 
