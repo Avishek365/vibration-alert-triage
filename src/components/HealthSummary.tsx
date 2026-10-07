@@ -75,7 +75,9 @@ function MachineItem({
         {point.thresholds.critical.toFixed(2)} · {point.name}
       </span>
       {reason && <span className="text-primary">{reason}</span>}
-      {sensor && <SensorStatusIndicator point={sensor} now={now} />}
+      {/* Name the sensor when it is not the one the reading comes from, so a stale
+          sensor is never read as describing the reading beside it. */}
+      {sensor && <SensorStatusIndicator point={sensor} now={now} named={sensor.id !== point.id} />}
       <span className="text-secondary">
         {openAlertCount === 0
           ? 'No open alerts'

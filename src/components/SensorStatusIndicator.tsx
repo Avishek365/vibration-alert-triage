@@ -29,7 +29,19 @@ function Icon({ status }: { status: MeasurementPoint['sensorStatus'] }) {
  * online sensor shows nothing, but keeps its tooltip and screen-reader text,
  * and the line is still reserved so rows stay aligned.
  */
-export function SensorStatusIndicator({ point, now }: { point: MeasurementPoint; now: Date }) {
+export function SensorStatusIndicator({
+  point,
+  now,
+  named = false,
+}: {
+  point: MeasurementPoint
+  now: Date
+  /**
+   * Name the measurement point ("Compressor DE bearing sensor stale 6h"). Use
+   * when the indicator sits next to a reading from a different point.
+   */
+  named?: boolean
+}) {
   const { sensorStatus, lastSeenAt } = point
   const description = describeSensor(sensorStatus, lastSeenAt)
 
@@ -48,9 +60,17 @@ export function SensorStatusIndicator({ point, now }: { point: MeasurementPoint;
       className="flex h-4 items-center gap-1 text-xs text-tertiary"
     >
       <Icon status={sensorStatus} />
-      <span>
-        <span className="sr-only">Sensor </span>
-        {SENSOR_STATUS_LABELS[sensorStatus]}
+      <span className="whitespace-nowrap">
+        {named ? (
+          <>
+            {point.name} sensor {SENSOR_STATUS_LABELS[sensorStatus].toLowerCase()}
+          </>
+        ) : (
+          <>
+            <span className="sr-only">Sensor </span>
+            {SENSOR_STATUS_LABELS[sensorStatus]}
+          </>
+        )}
         {sensorStatus === 'stale' && ` ${formatAgeCompact(lastSeenAt, now)}`}
       </span>
     </span>

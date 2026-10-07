@@ -103,6 +103,23 @@ describe('SensorStatusIndicator', () => {
     expect(indicator.title).toMatch(new RegExp(`^Sensor ${overrides.sensorStatus} · Last reading `))
   })
 
+  it('can name its measurement point', () => {
+    const { container } = render(
+      <SensorStatusIndicator
+        point={point({
+          sensorStatus: 'stale',
+          lastSeenAt: threeHoursAgo,
+          name: 'Compressor DE bearing',
+        })}
+        now={now}
+        named
+      />,
+    )
+    expect(container.querySelector('[data-sensor]')).toHaveTextContent(
+      /^Compressor DE bearing sensor stale 3h$/,
+    )
+  })
+
   it('uses distinct icons for stale and offline', () => {
     const icons = (['stale', 'offline'] as const).map((sensorStatus) => {
       const { svg, unmount } = renderStatus({ sensorStatus })

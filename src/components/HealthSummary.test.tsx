@@ -165,6 +165,31 @@ describe('machine list rows', () => {
     )
   })
 
+  it('name the stale sensor when it is not the point the reading comes from', async () => {
+    const panel = await openList('Critical')
+    const blower = (await api.listAssets()).find((a) => a.asset.name === 'Aeration blower 1')!
+    const reading = blower.asset.points.find((pt) => pt.id === blower.driver!.pointId)!
+    const stale = blower.asset.points.find((pt) => pt.sensorStatus === 'stale')!
+    // The case only means something if the two are different points.
+    expect(stale.id).not.toBe(reading.id)
+    expect(reading.sensorStatus).toBe('online')
+
+    const row = rowFor(panel, 'Aeration blower 1')
+    expect(row.querySelector('[data-reading]')).toHaveTextContent(
+      `Latest ${reading.latestReading.toFixed(2)} mm/s · critical limit 11.20 · ${reading.name}`,
+    )
+    expect(row.querySelector('[data-sensor="stale"]')).toHaveTextContent(
+      new RegExp(`^${stale.name} sensor stale \\d+h$`),
+    )
+  })
+
+  it("do not repeat the point name when the stale sensor is the reading's own", async () => {
+    const panel = await openList('Critical')
+    const row = rowFor(panel, 'Stock pump 2')
+    expect(row.querySelector('[data-sensor="stale"]')).toHaveTextContent(/^Sensor Stale \d+h$/)
+    expect(row.querySelector('[data-reading]')).toHaveTextContent(/^Last reading .* at /)
+  })
+
   it('show a reason when Critical comes from an open alert while the reading is below the limit', async () => {
     const [real] = (await api.listAssets()).filter((a) => a.health === 'critical')
     const point = {
