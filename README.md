@@ -48,7 +48,7 @@ npm test      # run the tests (watch mode; npm run test:run for a single run)
 
 ## Accessibility
 
-Passes an automated axe audit with zero violations, plus automated keyboard tests. Light mode only. Not yet tested with a screen reader.
+Passes an automated axe audit with zero violations, plus automated keyboard tests and a manual screen-reader check (VoiceOver, macOS). Light mode only.
 
 ## Known limits
 
